@@ -26,6 +26,13 @@
             <version>${akka.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>junit</groupId>
+            <artifactId>junit</artifactId>
+            <version>4.13.2</version>
+            <scope>test</scope>
+        </dependency>
+
         <!-- Akka SLF4J -->
         <dependency>
             <groupId>com.typesafe.akka</groupId>
