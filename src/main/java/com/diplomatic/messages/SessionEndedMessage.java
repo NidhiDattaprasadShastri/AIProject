@@ -8,7 +8,6 @@ public final class SessionEndedMessage {
         this.sessionId = sessionId;
         this.success = success;
     }
-
     public String getSessionId() { return sessionId; }
     public boolean isSuccess() { return success; }
 }

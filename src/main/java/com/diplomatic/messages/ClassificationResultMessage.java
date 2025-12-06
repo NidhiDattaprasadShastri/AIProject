@@ -7,9 +7,7 @@ public final class ClassificationResultMessage {
     private final String detectedCountry;
     private final String detectedPrimitive;
 
-    public ClassificationResultMessage(String scenario, String targetActor,
-                                       double confidence, String detectedCountry,
-                                       String detectedPrimitive) {
+    public ClassificationResultMessage(String scenario, String targetActor, double confidence, String detectedCountry, String detectedPrimitive) {
         this.scenario = scenario;
         this.targetActor = targetActor;
         this.confidence = confidence;

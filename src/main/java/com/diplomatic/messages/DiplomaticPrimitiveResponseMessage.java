@@ -8,7 +8,6 @@ public final class DiplomaticPrimitiveResponseMessage {
         this.primitive = primitive;
         this.result = result;
     }
-
     public String getPrimitive() { return primitive; }
     public String getResult() { return result; }
 }

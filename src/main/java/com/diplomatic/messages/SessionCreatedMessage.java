@@ -8,7 +8,6 @@ public final class SessionCreatedMessage {
         this.sessionId = sessionId;
         this.userId = userId;
     }
-
     public String getSessionId() { return sessionId; }
     public String getUserId() { return userId; }
 }

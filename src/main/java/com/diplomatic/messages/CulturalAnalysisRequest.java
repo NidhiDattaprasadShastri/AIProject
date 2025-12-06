@@ -7,8 +7,7 @@ public final class CulturalAnalysisRequest implements CulturalAnalysisRequestMes
     private final String country;
     private final ActorRef<CulturalAnalysisResponseMessage> replyTo;
 
-    public CulturalAnalysisRequest(String query, String country,
-                                   ActorRef<CulturalAnalysisResponseMessage> replyTo) {
+    public CulturalAnalysisRequest(String query, String country, ActorRef<CulturalAnalysisResponseMessage> replyTo) {
         this.query = query;
         this.country = country;
         this.replyTo = replyTo;

@@ -8,7 +8,6 @@ public final class EndSessionMessage {
         this.sessionId = sessionId;
         this.replyTo = replyTo;
     }
-
     public String getSessionId() { return sessionId; }
     public ActorRef<SessionEndedMessage> getReplyTo() { return replyTo; }
 }

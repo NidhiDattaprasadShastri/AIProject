@@ -8,7 +8,6 @@ public final class LLMResponseMessage {
         this.response = response;
         this.success = success;
     }
-
     public String getResponse() { return response; }
     public boolean isSuccess() { return success; }
 }

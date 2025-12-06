@@ -29,7 +29,6 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
 
     public static final class RouteQuery implements Command {
         public final UserQueryMessage queryMessage;
-
         public RouteQuery(UserQueryMessage queryMessage) {
             this.queryMessage = queryMessage;
         }
@@ -45,8 +44,7 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
         this.sessionManager = context.spawn(
                 Behaviors.supervise(SessionManagerActor.create()).onFailure(SupervisorStrategy.restart()
                                         .withLimit(3, Duration.ofMinutes(1))),
-                "session-manager"
-        );
+                "session-manager");
         logger.info("SupervisorActor initialized with SessionManager");
     }
 

@@ -10,7 +10,6 @@ public final class SaveConversationMessage {
         this.query = query;
         this.response = response;
     }
-
     public String getSessionId() { return sessionId; }
     public String getQuery() { return query; }
     public String getResponse() { return response; }

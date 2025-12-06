@@ -7,7 +7,7 @@ public final class UserQueryMessage {
     private final String sessionId;
     private final String query;
     private final Instant timestamp;
-    private final ActorRef<String> replyTo; // Will send response back here
+    private final ActorRef<String> replyTo;
 
     public UserQueryMessage(String sessionId, String query, ActorRef<String> replyTo) {
         this.sessionId = sessionId;
@@ -15,7 +15,6 @@ public final class UserQueryMessage {
         this.timestamp = Instant.now();
         this.replyTo = replyTo;
     }
-
     public String getSessionId() { return sessionId; }
     public String getQuery() { return query; }
     public Instant getTimestamp() { return timestamp; }

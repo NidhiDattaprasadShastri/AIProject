@@ -14,72 +14,51 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
     private final Logger logger = LoggerFactory.getLogger(DiplomaticSessionActor.class);
     private final String sessionId;
     private final ActorRef<ConversationHistoryActor.Command> historyActor;
-
-    // References to Option B's intelligence actors (will be set when they're available)
     private ActorRef<RouteToClassifierMessage> classifierActor;
     private ActorRef<CulturalAnalysisRequestMessage> culturalActor;
     private ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor;
-
-    // Track conversation context
     private int conversationTurnCount = 0;
-
-    // Sealed interface for all commands this actor handles
     public interface Command {}
 
-    // Process a user query
     public static final class ProcessQuery implements Command {
         public final UserQueryMessage queryMessage;
-
         public ProcessQuery(UserQueryMessage queryMessage) {
             this.queryMessage = queryMessage;
         }
     }
 
-    // Internal message: Classification completed
     private static final class ClassificationComplete implements Command {
         public final ClassificationResultMessage result;
         public final UserQueryMessage originalQuery;
-
-        public ClassificationComplete(ClassificationResultMessage result,
-                                      UserQueryMessage originalQuery) {
+        public ClassificationComplete(ClassificationResultMessage result, UserQueryMessage originalQuery) {
             this.result = result;
             this.originalQuery = originalQuery;
         }
     }
 
-    // Internal message: Cultural analysis completed
     private static final class CulturalAnalysisComplete implements Command {
         public final CulturalAnalysisResponseMessage response;
         public final UserQueryMessage originalQuery;
-
-        public CulturalAnalysisComplete(CulturalAnalysisResponseMessage response,
-                                        UserQueryMessage originalQuery) {
+        public CulturalAnalysisComplete(CulturalAnalysisResponseMessage response, UserQueryMessage originalQuery) {
             this.response = response;
             this.originalQuery = originalQuery;
         }
     }
 
-    // Internal message: Primitive analysis completed
     private static final class PrimitiveAnalysisComplete implements Command {
         public final DiplomaticPrimitiveResponseMessage response;
         public final UserQueryMessage originalQuery;
-
-        public PrimitiveAnalysisComplete(DiplomaticPrimitiveResponseMessage response,
-                                         UserQueryMessage originalQuery) {
+        public PrimitiveAnalysisComplete(DiplomaticPrimitiveResponseMessage response, UserQueryMessage originalQuery) {
             this.response = response;
             this.originalQuery = originalQuery;
         }
     }
 
-    // Set intelligence actor references (called by SessionManager)
     public static final class SetIntelligenceActors implements Command {
         public final ActorRef<RouteToClassifierMessage> classifier;
         public final ActorRef<CulturalAnalysisRequestMessage> cultural;
         public final ActorRef<DiplomaticPrimitiveRequestMessage> primitives;
-
-        public SetIntelligenceActors(ActorRef<RouteToClassifierMessage> classifier,
-                ActorRef<CulturalAnalysisRequestMessage> cultural,
-                ActorRef<DiplomaticPrimitiveRequestMessage> primitives) {
+        public SetIntelligenceActors(ActorRef<RouteToClassifierMessage> classifier, ActorRef<CulturalAnalysisRequestMessage> cultural, ActorRef<DiplomaticPrimitiveRequestMessage> primitives) {
             this.classifier = classifier;
             this.cultural = cultural;
             this.primitives = primitives;
@@ -118,8 +97,7 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
 
     private Behavior<Command> onProcessQuery(ProcessQuery cmd) {
         conversationTurnCount++;
-        logger.info("Processing query #{} for session {}: {}",
-                conversationTurnCount, sessionId, cmd.queryMessage.getQuery());
+        logger.info("Processing query #{} for session {}: {}", conversationTurnCount, sessionId, cmd.queryMessage.getQuery());
         if (classifierActor == null) {
             logger.warn("Intelligence actors not yet initialized, using mock response");
             sendMockResponse(cmd.queryMessage);
@@ -142,9 +120,7 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
     }
 
     private Behavior<Command> onClassificationComplete(ClassificationComplete cmd) {
-        logger.info("Classification complete for session {}: scenario={}, target={}, confidence={}",
-                sessionId, cmd.result.getScenario(), cmd.result.getTargetActor(),
-                cmd.result.getConfidence());
+        logger.info("Classification complete for session {}: scenario={}, target={}, confidence={}", sessionId, cmd.result.getScenario(), cmd.result.getTargetActor(), cmd.result.getConfidence());
         String scenario = cmd.result.getScenario();
         if ("CULTURAL".equals(scenario)) {
             routeToCulturalAnalysis(cmd.result, cmd.originalQuery);
@@ -156,32 +132,22 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
         return this;
     }
 
-    private void routeToCulturalAnalysis(ClassificationResultMessage classification,
-                                         UserQueryMessage originalQuery) {
+    private void routeToCulturalAnalysis(ClassificationResultMessage classification, UserQueryMessage originalQuery) {
         logger.info("Routing to CulturalContextActor for session: {}", sessionId);
         ActorRef<CulturalAnalysisResponseMessage> responseAdapter =
-                getContext().messageAdapter(
-                        CulturalAnalysisResponseMessage.class,
-                        response -> new CulturalAnalysisComplete(response, originalQuery)
+                getContext().messageAdapter(CulturalAnalysisResponseMessage.class, response -> new CulturalAnalysisComplete(response, originalQuery)
                 );
         String country = classification.getDetectedCountry() != null
                 ? classification.getDetectedCountry()
                 : "General";
-        CulturalAnalysisRequest request = new CulturalAnalysisRequest(
-                originalQuery.getQuery(),
-                country,
-                responseAdapter
-        );
+        CulturalAnalysisRequest request = new CulturalAnalysisRequest(originalQuery.getQuery(), country, responseAdapter);
         culturalActor.tell(request);
     }
 
-    private void routeToPrimitiveAnalysis(ClassificationResultMessage classification,
-                                          UserQueryMessage originalQuery) {
+    private void routeToPrimitiveAnalysis(ClassificationResultMessage classification, UserQueryMessage originalQuery) {
         logger.info("Routing to DiplomaticPrimitivesActor for session: {}", sessionId);
-        ActorRef<DiplomaticPrimitiveResponseMessage> responseAdapter =
-                getContext().messageAdapter(
-                        DiplomaticPrimitiveResponseMessage.class,
-                        response -> new PrimitiveAnalysisComplete(response, originalQuery)
+        ActorRef<DiplomaticPrimitiveResponseMessage> responseAdapter = getContext().messageAdapter(DiplomaticPrimitiveResponseMessage.class,
+                response -> new PrimitiveAnalysisComplete(response, originalQuery)
                 );
         String primitive = classification.getDetectedPrimitive() != null
                 ? classification.getDetectedPrimitive()
@@ -216,9 +182,7 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
     }
 
     private void sendMockResponse(UserQueryMessage queryMessage) {
-        String mockResponse = String.format(
-                "[MOCK MODE] Session %s - Turn %d\n" +
-                        "Query: %s\n\n" +
+        String mockResponse = String.format("[MOCK MODE] Session %s - Turn %d\n" + "Query: %s\n\n" +
                         "Mock Response: I understand you're asking about diplomatic communication. " +
                         "Once the intelligence actors (Option B) are integrated, I'll provide " +
                         "culturally-informed guidance using the IDEA framework. For now, I'm operating " +

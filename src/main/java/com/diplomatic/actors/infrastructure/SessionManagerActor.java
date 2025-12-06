@@ -45,10 +45,7 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
     private SessionManagerActor(ActorContext<Command> context) {
         super(context);
         this.activeSessions = new HashMap<>();
-        this.historyActor = context.spawn(
-                ConversationHistoryActor.create(),
-                "conversation-history"
-        );
+        this.historyActor = context.spawn(ConversationHistoryActor.create(), "conversation-history");
         logger.info("SessionManagerActor initialized");
     }
 
@@ -68,15 +65,11 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
     private Behavior<Command> onCreateSession(CreateSession cmd) {
         String sessionId = UUID.randomUUID().toString();
         logger.info("Creating new session {} for user {}", sessionId, cmd.userId);
-        ActorRef<DiplomaticSessionActor.Command> sessionActor =
-                getContext().spawn(
-                        DiplomaticSessionActor.create(sessionId, historyActor),
-                        "session-" + sessionId
-                );
+        ActorRef<DiplomaticSessionActor.Command> sessionActor = getContext().spawn(DiplomaticSessionActor.create(sessionId, historyActor),
+                        "session-" + sessionId);
         activeSessions.put(sessionId, sessionActor);
         cmd.replyTo.tell(new SessionCreatedMessage(sessionId, cmd.userId));
-        logger.info("Session {} created successfully. Active sessions: {}",
-                sessionId, activeSessions.size());
+        logger.info("Session {} created successfully. Active sessions: {}", sessionId, activeSessions.size());
         return this;
     }
 
