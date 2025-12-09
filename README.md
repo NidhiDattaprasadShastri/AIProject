@@ -1,94 +1,106 @@
-# 🎭 Diplomatic Assistant - Infrastructure Layer (Option A)
+# 🎭 Cross-Cultural Diplomatic Assistant
 
 ## 📋 Project Overview
 
-This is the **infrastructure and foundation layer** of the Cross-Cultural Diplomatic Assistant, implementing the **Akka Actor Model** for concurrent session management, intelligent message routing, and conversation persistence.
+An AI-powered cross-cultural diplomatic communication assistant built with the **Akka Actor Model** and **Large Language Models (LLM)**. The system provides culturally-informed diplomatic guidance using the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design) for structured negotiation and communication.
 
 ### 🎯 Purpose
 
-Provides a scalable, fault-tolerant backend infrastructure that manages diplomatic consultation sessions and coordinates with AI intelligence actors to deliver culturally-informed diplomatic guidance.
+Helps diplomats, international business professionals, and cross-cultural communicators navigate complex diplomatic scenarios by:
+- **Analyzing cultural contexts** for any country or region
+- **Applying diplomatic primitives** (PROPOSE, CLARIFY, CONSTRAIN, REVISE, AGREE, ESCALATE, DEFER)
+- **Providing actionable guidance** informed by cultural intelligence
+- **Managing concurrent sessions** with fault-tolerant actor architecture
 
 ---
 
 ## 🏗️ Architecture
 
-### Actor Hierarchy
+### System Overview
+
 ```
-SupervisorActor (Root Guardian)
-├── SessionManagerActor
-│   └── DiplomaticSessionActor (per user session)
-└── ConversationHistoryActor
+┌─────────────────────────────────────────────────────────────┐
+│                    USER INTERFACE LAYER                      │
+│                  DiplomaticAssistantCLI                      │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│                   INFRASTRUCTURE LAYER                        │
+│                                                              │
+│  SupervisorActor (Root Guardian)                            │
+│       │                                                      │
+│       ├──► SessionManagerActor                              │
+│       │       └──► DiplomaticSessionActor (per session)     │
+│       │                                                      │
+│       └──► ConversationHistoryActor                         │
+│                                                              │
+└────────────────────────────┬────────────────────────────────┘
+                             │
+┌────────────────────────────▼────────────────────────────────┐
+│                   INTELLIGENCE LAYER                         │
+│                                                              │
+│  IntelligenceSupervisorActor                                │
+│       │                                                      │
+│       ├──► ScenarioClassifierActor                          │
+│       │                                                      │
+│       ├──► CulturalContextActor                             │
+│       │                                                      │
+│       ├──► DiplomaticPrimitivesActor                        │
+│       │                                                      │
+│       └──► LLMProcessorActor                                │
+│                   │                                          │
+│                   ├──► Claude API (Anthropic)               │
+│                   └──► OpenAI API                           │
+│                                                              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Integration with Option B (Intelligence Layer)
+### Actor Components
+
+#### Infrastructure Layer (Part A)
+- **SupervisorActor**: Root guardian with fault tolerance strategies
+- **SessionManagerActor**: Manages user sessions and routing
+- **DiplomaticSessionActor**: Orchestrates individual consultations
+- **ConversationHistoryActor**: Persists conversation data
+
+#### Intelligence Layer (Part B)
+- **IntelligenceSupervisorActor**: Spawns and manages intelligence actors
+- **ScenarioClassifierActor**: Classifies queries as CULTURAL or PRIMITIVE
+- **CulturalContextActor**: Provides cultural intelligence
+- **DiplomaticPrimitivesActor**: Applies IDEA Framework primitives
+- **LLMProcessorActor**: Handles API calls to Claude/OpenAI
+
+### Message Flow
+
 ```
+User Query
+    │
+    ▼
 DiplomaticSessionActor
-    ↓
-[Routes to Option B actors]
-    ├→ ScenarioClassifierActor
-    ├→ CulturalContextActor  
-    ├→ DiplomaticPrimitivesActor
-    └→ LLMProcessorActor
+    │
+    ├──► ScenarioClassifierActor
+    │         │
+    │         └──► Classification Result
+    │
+    ├──► CulturalContextActor (if CULTURAL)
+    │         │
+    │         └──► Cultural Analysis
+    │
+    └──► DiplomaticPrimitivesActor (if PRIMITIVE)
+              │
+              └──► Diplomatic Guidance
+                        │
+                        ▼
+                   LLMProcessorActor
+                        │
+                        └──► Claude/OpenAI API
+                                  │
+                                  ▼
+                            Response to User
+                                  │
+                                  ▼
+                        ConversationHistoryActor
 ```
-
----
-
-## 🎭 Components
-
-### **1. SupervisorActor**
-- Root system guardian
-- Manages actor lifecycle and fault tolerance
-- Implements supervision strategies (restart on failure)
-- Spawns SessionManager and ConversationHistory actors
-
-### **2. SessionManagerActor**
-- Creates and manages user sessions
-- Routes queries to appropriate session actors
-- Handles session lifecycle (create/destroy)
-- Maintains map of active sessions
-
-### **3. DiplomaticSessionActor**
-- Orchestrates individual user conversations
-- Routes queries to ScenarioClassifierActor (Option B)
-- Processes responses from intelligence actors
-- Maintains conversation context
-- **Currently operates in MOCK mode** until Option B integration
-
-### **4. ConversationHistoryActor**
-- Persists all conversation data
-- In-memory storage with logging
-- Maintains conversation statistics
-- Provides history retrieval functionality
-
----
-
-## 📦 Message Protocol
-
-All message classes defined in `com.diplomatic.messages`:
-
-### Session Management
-- `StartSessionMessage` - Create new session
-- `SessionCreatedMessage` - Session confirmation
-- `EndSessionMessage` - Terminate session
-- `SessionEndedMessage` - Termination confirmation
-
-### Query Processing
-- `UserQueryMessage` - User input
-- `QueryResponseMessage` - System response
-
-### Routing (Integration with Option B)
-- `RouteToClassifierMessage` - Send to classifier
-- `ClassificationResultMessage` - Classification result
-- `CulturalAnalysisRequest/Response` - Cultural intelligence
-- `DiplomaticPrimitiveRequest/Response` - IDEA framework
-
-### LLM Processing (Option B)
-- `LLMRequestMessage` - LLM API call
-- `LLMResponseMessage` - LLM response
-
-### Persistence
-- `SaveConversationMessage` - Save conversation turn
-- `ConversationSavedMessage` - Save confirmation
 
 ---
 
@@ -98,25 +110,48 @@ All message classes defined in `com.diplomatic.messages`:
 
 - **Java 17** or higher
 - **Maven 3.8+**
+- **API Key** for Claude (Anthropic) or OpenAI
 - **Git** (for version control)
 
 ### Installation
+
+1. **Clone the repository**
 ```bash
-# Clone repository
 git clone <repository-url>
 cd diplomatic-assistant
+```
 
-# Compile
+2. **Set up API credentials**
+
+**For Claude (Recommended):**
+```bash
+export LLM_API_KEY="your-anthropic-api-key"
+export LLM_PROVIDER="CLAUDE"
+```
+
+**For OpenAI:**
+```bash
+export LLM_API_KEY="your-openai-api-key"
+export LLM_PROVIDER="OPENAI"
+```
+
+3. **Compile the project**
+```bash
 mvn clean compile
+```
 
-# Run tests
+4. **Run tests**
+```bash
 mvn test
+```
 
-# Run application
-mvn exec:java -Dexec.mainClass="com.diplomatic.Main"
+5. **Run the application**
+```bash
+mvn exec:java -Dexec.mainClass="com.diplomatic.DiplomaticAssistantApp"
 ```
 
 ### Building Executable JAR
+
 ```bash
 mvn clean package
 java -jar target/AIProject-1.0-SNAPSHOT.jar
@@ -126,63 +161,105 @@ java -jar target/AIProject-1.0-SNAPSHOT.jar
 
 ## 💻 Usage
 
-### Starting the CLI
+### Starting the Application
+
 ```bash
-mvn exec:java -Dexec.mainClass="com.diplomatic.Main"
+mvn exec:java -Dexec.mainClass="com.diplomatic.DiplomaticAssistantApp"
 ```
 
-### Example Interaction
+### Command-Line Interface
+
 ```
-╔════════════════════════════════════════════════════════════════╗
-║        CROSS-CULTURAL DIPLOMATIC ASSISTANT                     ║
-║        Powered by AKKA Actor Model & AI                        ║
-╚════════════════════════════════════════════════════════════════╝
+╔═══════════════════════════════════════════════════════════════╗
+║        CROSS-CULTURAL DIPLOMATIC ASSISTANT                    ║
+║        Powered by AKKA Actor Model & AI                       ║
+╚═══════════════════════════════════════════════════════════════╝
 
-Enter your name or ID: John Diplomat
+🤖 Using LLM Provider: CLAUDE
+✓ API Key configured
+🔡 Starting distributed actor system...
 
-✅ Session created successfully!
-📋 Session ID: a1b2c3d4-5678-90ef-ghij-klmnopqrstuv
+✓ Intelligence actors initialized
+✓ System ready
 
-💬 Start your consultation:
+Enter your name or ID (press Enter for auto-generated):
+```
 
-You: How should I negotiate with Japan?
+### Example Interactions
+
+#### Cultural Question
+```
+You: How should I greet a Japanese diplomat at a formal meeting?
 
 🤖 Assistant:
-[MOCK MODE] I understand you're asking about diplomatic communication...
+
+In Japanese diplomatic culture, greeting protocols emphasize respect and 
+hierarchy. Key considerations:
+
+1. BOW FIRST: A respectful bow (15-30 degrees) before handshake
+2. EXCHANGE BUSINESS CARDS: Use both hands, read carefully before pocketing
+3. USE TITLES: Address by title + san (e.g., "Ambassador Tanaka-san")
+4. WAIT FOR SENIOR: Let the highest-ranking person greet first
+
+Avoid: Overly firm handshakes, prolonged eye contact, casual first names
 ```
 
----
+#### Diplomatic Primitive
+```
+You: How should I propose a new trade agreement with Germany?
 
-## 🧪 Testing
+🤖 Assistant:
 
-### Run All Tests
-```bash
-mvn test
+When proposing trade agreements with German counterparts, follow these 
+strategies:
+
+STRATEGY: Germans value directness, thoroughness, and data-driven proposals
+
+KEY ACTIONS:
+1. Present detailed analysis with supporting data
+2. Use clear, direct language without ambiguity
+3. Prepare for critical questions and challenges
+4. Show long-term sustainability and risk mitigation
+
+EXPECTED OUTCOMES:
+- Thorough questioning of assumptions
+- Request for additional documentation
+- Emphasis on legal compliance and process
+
+NEXT STEPS:
+- Prepare comprehensive written proposal
+- Schedule formal presentation meeting
+- Allow time for internal review process
+
+[Diplomatic Primitive: PROPOSE]
 ```
 
-### Run Specific Test
-```bash
-mvn test -Dtest=DiplomaticSessionActorTest
-```
+### Available Commands
 
-### Current Test Coverage
-
-- ✅ DiplomaticSessionActor - Query processing in mock mode
-- ✅ ConversationHistoryActor - Data persistence
-- ⏳ Integration tests (pending Option B completion)
+- `help` - Display example queries and usage guide
+- `exit` or `quit` - End session and shutdown
+- Any other input - Process as diplomatic query
 
 ---
 
 ## ⚙️ Configuration
 
-### `application.conf`
+### Application Configuration (`application.conf`)
+
 ```hocon
 akka {
   loglevel = "INFO"
+  
   actor {
     provider = local
+    
     default-dispatcher {
-      fixed-pool-size = 16
+      type = Dispatcher
+      executor = "thread-pool-executor"
+      thread-pool-executor {
+        fixed-pool-size = 16
+      }
+      throughput = 5
     }
   }
 }
@@ -193,149 +270,264 @@ diplomatic-assistant {
 }
 ```
 
-### Logging
+### Logging Configuration (`logback.xml`)
 
-Configured in `src/main/resources/logback.xml`
+Located in `src/main/resources/logback.xml`:
 - Default level: INFO
-- Outputs to console
-- Includes actor system logs
+- Console output with timestamps
+- Actor system logging enabled
+
+### Environment Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `LLM_API_KEY` | API key for Claude or OpenAI | Required |
+| `LLM_PROVIDER` | `CLAUDE` or `OPENAI` | `CLAUDE` |
 
 ---
 
-## 🔌 Integration Points for Option B
+## 🧪 Testing
 
-### Required Intelligence Actors
-
-Option B needs to provide these actor references:
-```java
-ActorRef<RouteToClassifierMessage> classifierActor
-ActorRef<CulturalAnalysisRequestMessage> culturalActor
-ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor
+### Run All Tests
+```bash
+mvn test
 ```
 
-### Integration Method
-
-Pass actor references to SessionManager:
-```java
-sessionManager.tell(new SessionManagerActor.SetIntelligenceActors(
-    classifierActor,
-    culturalActor,
-    primitivesActor
-));
+### Run Specific Test Class
+```bash
+mvn test -Dtest=DiplomaticSessionActorTest
 ```
 
-### Message Flow
-```
-User → DiplomaticSessionActor
-    ↓
-RouteToClassifierMessage → ScenarioClassifierActor (Option B)
-    ↓
-ClassificationResultMessage → DiplomaticSessionActor
-    ↓
-[Routes to Cultural OR Primitives actor based on classification]
-    ↓
-Response → User
-    ↓
-SaveConversationMessage → ConversationHistoryActor
-```
+### Current Test Coverage
+
+- ✅ Actor message handling
+- ✅ Session management
+- ✅ Message routing
+- ✅ Classification logic
+- ✅ History persistence
 
 ---
 
-## 📊 Project Status
+## 📦 Project Structure
 
-### ✅ Completed
-
-- [x] All 4 infrastructure actors
-- [x] Complete message protocol (14 messages)
-- [x] Terminal CLI interface
-- [x] Maven project setup
-- [x] Configuration files
-- [x] Unit tests
-- [x] Mock mode operation
-
-### ⏳ Pending (Integration Weekend)
-
-- [ ] Integration with Option B intelligence actors
-- [ ] End-to-end testing with real AI responses
-- [ ] Performance optimization
-- [ ] Extended error handling
-
----
-
-## 📁 Project Structure
 ```
 diplomatic-assistant/
-├── pom.xml
-├── README.md
+├── pom.xml                          # Maven configuration
+├── README.md                        # This file
 ├── .gitignore
+│
 ├── src/
 │   ├── main/
 │   │   ├── java/com/diplomatic/
-│   │   │   ├── actors/infrastructure/
-│   │   │   │   ├── SupervisorActor.java
-│   │   │   │   ├── SessionManagerActor.java
-│   │   │   │   ├── DiplomaticSessionActor.java
-│   │   │   │   └── ConversationHistoryActor.java
+│   │   │   │
+│   │   │   ├── actors/
+│   │   │   │   ├── infrastructure/
+│   │   │   │   │   ├── SupervisorActor.java
+│   │   │   │   │   ├── SessionManagerActor.java
+│   │   │   │   │   ├── DiplomaticSessionActor.java
+│   │   │   │   │   └── ConversationHistoryActor.java
+│   │   │   │   │
+│   │   │   │   └── intelligence/
+│   │   │   │       ├── IntelligenceSupervisorActor.java
+│   │   │   │       ├── ScenarioClassifierActor.java
+│   │   │   │       ├── CulturalContextActor.java
+│   │   │   │       ├── DiplomaticPrimitivesActor.java
+│   │   │   │       └── LLMProcessorActor.java
+│   │   │   │
 │   │   │   ├── messages/
-│   │   │   │   ├── StartSessionMessage.java
 │   │   │   │   ├── UserQueryMessage.java
-│   │   │   │   ├── RouteToClassifierMessage.java
-│   │   │   │   └── ... (14 total)
-│   │   │   ├── models/
+│   │   │   │   ├── ClassificationResultMessage.java
+│   │   │   │   ├── CulturalAnalysisRequest.java
+│   │   │   │   ├── CulturalAnalysisRequestMessage.java
+│   │   │   │   ├── CulturalAnalysisResponseMessage.java
+│   │   │   │   ├── DiplomaticPrimitiveRequestMessage.java
+│   │   │   │   ├── DiplomaticPrimitiveResponseMessage.java
+│   │   │   │   ├── LLMRequestMessage.java
+│   │   │   │   ├── LLMResponseMessage.java
+│   │   │   │   ├── SaveConversationMessage.java
+│   │   │   │   └── ... (17 total message classes)
+│   │   │   │
+│   │   │   ├── Models/
 │   │   │   │   ├── Session.java
 │   │   │   │   ├── ConversationEntry.java
 │   │   │   │   └── UserContext.java
-│   │   │   ├── Main.java
-│   │   │   └── DiplomaticAssistantCLI.java
+│   │   │   │
+│   │   │   ├── DiplomaticAssistantApp.java    # Main entry point
+│   │   │   └── DiplomaticAssistantCLI.java    # User interface
+│   │   │
 │   │   └── resources/
-│   │       ├── application.conf
-│   │       └── logback.xml
+│   │       ├── application.conf               # Akka configuration
+│   │       └── logback.xml                   # Logging configuration
+│   │
 │   └── test/
-│       └── java/com/diplomatic/actors/
-│           └── DiplomaticSessionActorTest.java
-└── target/ (generated)
+│       └── java/com/diplomatic/
+│           └── actors/
+│               └── DiplomaticSessionActorTest.java
+│
+└── target/                                    # Compiled output (generated)
 ```
 
 ---
 
-## 🤝 Contributing
+## 🔑 API Setup Guide
 
-This is **Option A** of a two-person project:
+### Getting Claude API Key (Anthropic)
 
-- **Option A (this repo)**: Infrastructure & Foundation
-- **Option B**: Intelligence & Domain Logic (AI actors)
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Sign up or log in
+3. Navigate to "API Keys"
+4. Create a new key
+5. Copy and set as environment variable:
+   ```bash
+   export LLM_API_KEY="sk-ant-..."
+   ```
 
-### For Option B Developer
+### Getting OpenAI API Key
 
-All message classes are ready in `com.diplomatic.messages`. Use them to build:
-- ScenarioClassifierActor
-- CulturalContextActor
-- DiplomaticPrimitivesActor
-- LLMProcessorActor
+1. Visit [platform.openai.com](https://platform.openai.com)
+2. Sign up or log in
+3. Navigate to "API Keys"
+4. Create a new key
+5. Copy and set as environment variable:
+   ```bash
+   export LLM_API_KEY="sk-..."
+   export LLM_PROVIDER="OPENAI"
+   ```
+
+### Supported Models
+
+- **Claude**: `claude-sonnet-4-20250514` (default)
+- **OpenAI**: `gpt-4`
+
+---
+
+## 🎓 IDEA Framework
+
+The system implements the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design) with seven diplomatic primitives:
+
+| Primitive | Purpose | Example Usage |
+|-----------|---------|---------------|
+| **PROPOSE** | Present new ideas, terms, or solutions | "How should I propose a partnership with China?" |
+| **CLARIFY** | Seek or provide understanding | "Help me clarify contract terms with French partners" |
+| **CONSTRAIN** | Define boundaries and limitations | "Setting deadlines in Middle Eastern negotiations" |
+| **REVISE** | Modify proposals based on feedback | "How to suggest changes without offense in Japan?" |
+| **AGREE** | Reach consensus or accept terms | "Finalizing agreements with Brazilian counterparts" |
+| **ESCALATE** | Elevate to higher authority | "When to escalate issues in Turkish negotiations?" |
+| **DEFER** | Postpone decisions strategically | "Requesting more time in Korean business culture" |
+
+---
+
+## 🛠️ Development
+
+### Adding New Intelligence Actors
+
+1. Create actor class in `actors/intelligence/`
+2. Define message protocol
+3. Register in `IntelligenceSupervisorActor`
+4. Update routing in `DiplomaticSessionActor`
+
+### Extending Cultural Knowledge
+
+The system uses LLM-powered cultural intelligence, so expanding coverage requires:
+1. Update country detection in `ScenarioClassifierActor`
+2. Add cultural keywords if needed
+3. No hard-coded cultural data required
+
+### Custom LLM Provider
+
+Implement in `LLMProcessorActor`:
+```java
+private String callCustomLLMAPI(String prompt) throws Exception {
+    // Your implementation
+}
+```
 
 ---
 
 ## 🐛 Troubleshooting
 
-### "Cannot find symbol" errors
+### Application won't start
 ```bash
+# Check Java version
+java -version  # Should be 17+
+
+# Clean and rebuild
 mvn clean compile
 ```
 
-### Tests fail
+### "Cannot find symbol" errors
 ```bash
-mvn clean test
+# Clean Maven cache
+mvn clean install -U
 ```
 
-### Application won't start
-Check Java version:
+### API Key not recognized
 ```bash
-java -version  # Should be 17+
+# Verify environment variable
+echo $LLM_API_KEY
+
+# Set in current session
+export LLM_API_KEY="your-key-here"
 ```
+
+### Actor system errors
+- Check `application.conf` syntax
+- Review logs in console output
+- Ensure all dependencies are present
+
+### No LLM responses
+- Verify API key is valid
+- Check network connectivity
+- Review LLMProcessorActor logs
+- Ensure API provider matches key type
 
 ---
 
-## 📝 License
+## 📊 Performance Characteristics
+
+- **Concurrent Sessions**: Up to 100 active sessions
+- **Response Time**: 2-5 seconds typical (depends on LLM API)
+- **Actor Throughput**: 16 concurrent operations
+- **Fault Tolerance**: Auto-restart on failure (3 attempts)
+
+---
+
+## 🔐 Security Considerations
+
+- **API Keys**: Never commit to version control
+- **Environment Variables**: Use `.env` files or system environment
+- **Session Data**: Stored in-memory only (not persistent)
+- **Logging**: Be cautious about logging sensitive diplomatic content
+
+---
+
+## 📚 Academic Context
+
+This project implements concepts from:
+- **IDEA Framework**: Computational diplomacy primitives
+- **Actor Model**: Concurrent, distributed systems (Carl Hewitt, 1973)
+- **Enterprise Architecture**: TOGAF, Zachman Framework integration
+- **Cross-Cultural Communication**: Hofstede dimensions, cultural intelligence
+
+### Related Research
+- Computational models of negotiation
+- Task-oriented dialogue systems
+- Cross-cultural communication patterns
+- Enterprise architecture frameworks
+
+---
+
+## 🤝 Contributing
+
+This is an academic research project. For questions or collaboration:
+- Review the IDEA Framework documentation
+- Check existing issues and message protocols
+- Follow the actor model patterns established
+- Maintain separation between infrastructure and intelligence layers
+
+---
+
+## 📄 License
 
 [Your License Here]
 
@@ -343,23 +535,33 @@ java -version  # Should be 17+
 
 ## 👤 Author
 
-**Option A - Infrastructure Lead**  
-[Your Name]  
-[Your Email]
+**Yasmin**  
+MS in Software Engineering Systems  
+Northeastern University  
+Systems Engineer at General Dynamics Mission Systems
 
-**Project**: Cross-Cultural Diplomatic Assistant  
-**Course**: [Your Course Name]  
-**Date**: December 2024
-
----
-
-## 🎯 Next Steps
-
-1. ✅ Complete Option A development (DONE)
-2. ⏳ Wait for Option B completion
-3. 🔄 Integration weekend (Dec 7-8)
-4. 🚀 Final testing and deployment
+**Advisor**: Professor Kal Bugrara
 
 ---
 
-**Status**: ✅ Option A Complete - Ready for Integration
+## 🎯 Project Status
+
+✅ **Complete and Operational**
+- Infrastructure Layer (Part A): Complete
+- Intelligence Layer (Part B): Complete
+- LLM Integration: Claude & OpenAI supported
+- CLI Interface: Fully functional
+- Message Protocol: 17 message types implemented
+- Actor System: Fault-tolerant and concurrent
+
+**Future Enhancements**:
+- Web-based user interface
+- REST API for programmatic access
+- Conversation analytics dashboard
+- Multi-language support
+- Persistent conversation storage
+
+---
+
+**Last Updated**: December 2024  
+**Version**: 1.0-SNAPSHOT

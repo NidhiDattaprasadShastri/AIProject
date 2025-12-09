@@ -1,6 +1,10 @@
 package com.diplomatic.messages;
 import akka.actor.typed.ActorRef;
-public final class RouteToClassifierMessage {
+
+/**
+ * Message to route query to classifier - crosses cluster boundaries
+ */
+public final class RouteToClassifierMessage implements CborSerializable {
     private final String sessionId;
     private final String query;
     private final ActorRef<ClassificationResultMessage> replyTo;

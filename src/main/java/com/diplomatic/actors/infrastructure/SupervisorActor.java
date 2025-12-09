@@ -7,15 +7,23 @@ import akka.actor.typed.javadsl.AbstractBehavior;
 import akka.actor.typed.javadsl.ActorContext;
 import akka.actor.typed.javadsl.Behaviors;
 import akka.actor.typed.javadsl.Receive;
+import com.diplomatic.actors.intelligence.IntelligenceSupervisorActor;
 import com.diplomatic.messages.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
 import java.time.Duration;
 
 public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
 
     private final Logger logger = LoggerFactory.getLogger(SupervisorActor.class);
     private final ActorRef<SessionManagerActor.Command> sessionManager;
+    private ActorRef<IntelligenceSupervisorActor.Command> intelligenceSupervisor;
+
+    private ActorRef<RouteToClassifierMessage> classifierActor;
+    private ActorRef<CulturalAnalysisRequestMessage> culturalActor;
+    private ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor;
+
     public interface Command {}
 
     public static final class CreateSession implements Command {
@@ -34,6 +42,16 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
         }
     }
 
+    public static final class InitializeIntelligence implements Command {
+        public final String apiKey;
+        public final String apiProvider;
+
+        public InitializeIntelligence(String apiKey, String apiProvider) {
+            this.apiKey = apiKey;
+            this.apiProvider = apiProvider;
+        }
+    }
+
     public static final class Shutdown implements Command {
         public static final Shutdown INSTANCE = new Shutdown();
         private Shutdown() {}
@@ -42,9 +60,11 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
     private SupervisorActor(ActorContext<Command> context) {
         super(context);
         this.sessionManager = context.spawn(
-                Behaviors.supervise(SessionManagerActor.create()).onFailure(SupervisorStrategy.restart()
-                                        .withLimit(3, Duration.ofMinutes(1))),
-                "session-manager");
+                Behaviors.supervise(SessionManagerActor.create()).onFailure(
+                        SupervisorStrategy.restart().withLimit(3, Duration.ofMinutes(1))
+                ),
+                "session-manager"
+        );
         logger.info("SupervisorActor initialized with SessionManager");
     }
 
@@ -55,10 +75,36 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
     @Override
     public Receive<Command> createReceive() {
         return newReceiveBuilder()
+                .onMessage(InitializeIntelligence.class, this::onInitializeIntelligence)
                 .onMessage(CreateSession.class, this::onCreateSession)
                 .onMessage(RouteQuery.class, this::onRouteQuery)
                 .onMessage(Shutdown.class, this::onShutdown)
                 .build();
+    }
+
+    private Behavior<Command> onInitializeIntelligence(InitializeIntelligence msg) {
+        logger.info("Initializing intelligence actors...");
+
+        try {
+            this.intelligenceSupervisor = getContext().spawn(
+                    IntelligenceSupervisorActor.create(),
+                    "intelligence-supervisor"
+            );
+
+            intelligenceSupervisor.tell(new IntelligenceSupervisorActor.Initialize(
+                    msg.apiKey,
+                    msg.apiProvider
+            ));
+
+            Thread.sleep(500);
+
+            logger.info("Intelligence actors initialization complete");
+
+        } catch (Exception e) {
+            logger.error("Failed to initialize intelligence actors", e);
+        }
+
+        return this;
     }
 
     private Behavior<Command> onCreateSession(CreateSession cmd) {
@@ -66,13 +112,19 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
         sessionManager.tell(new SessionManagerActor.CreateSession(cmd.userId, cmd.replyTo));
         return this;
     }
+
     private Behavior<Command> onRouteQuery(RouteQuery cmd) {
         logger.info("Routing query for session: {}", cmd.queryMessage.getSessionId());
         sessionManager.tell(new SessionManagerActor.RouteToSession(cmd.queryMessage));
         return this;
     }
+
     private Behavior<Command> onShutdown(Shutdown cmd) {
         logger.info("Shutting down SupervisorActor and all children");
         return Behaviors.stopped();
+    }
+
+    public ActorRef<IntelligenceSupervisorActor.Command> getIntelligenceSupervisor() {
+        return intelligenceSupervisor;
     }
 }
