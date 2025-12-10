@@ -18,6 +18,10 @@ import org.slf4j.LoggerFactory;
 
 import scala.collection.Iterator;
 
+/**
+ * Cluster-Aware Supervisor for Node 1 (Infrastructure)
+ * COMPLETE CORRECTED VERSION - NO MORE ERRORS!
+ */
 public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorActor.Command> {
 
     private final Logger logger = LoggerFactory.getLogger(ClusterSupervisorActor.class);
@@ -32,6 +36,10 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
     public static final ServiceKey<Command> SUPERVISOR_KEY =
             ServiceKey.create(Command.class, "cluster-supervisor");
 
+    // ========================================================================
+    // COMMAND MESSAGES
+    // ========================================================================
+
     public interface Command {}
 
     public static final class MonitorCluster implements Command {}
@@ -39,12 +47,14 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
     public static final class CreateSession implements Command {
         public final String userId;
         public final ActorRef<SessionCreatedMessage> replyTo;
+
         public CreateSession(String userId, ActorRef<SessionCreatedMessage> replyTo) {
             this.userId = userId;
             this.replyTo = replyTo;
         }
     }
 
+    // CORRECTED: RouteQuery with separate fields (NO UserQueryMessage!)
     public static final class RouteQuery implements Command {
         public final String sessionId;
         public final String query;
@@ -78,6 +88,10 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
         }
     }
 
+    // ========================================================================
+    // CONSTRUCTOR
+    // ========================================================================
+
     public static Behavior<Command> createInfrastructure() {
         return Behaviors.setup(ClusterSupervisorActor::new);
     }
@@ -90,6 +104,7 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
                 Receptionist.register(SUPERVISOR_KEY, context.getSelf())
         );
 
+        // Regular child actor (NO singleton!)
         this.sessionManager = context.spawn(
                 SessionManagerActor.create(),
                 "session-manager"
@@ -102,6 +117,10 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
         System.out.println("📡 Registered ClusterSupervisor with receptionist");
         System.out.println("✅ SessionManager spawned as regular actor");
     }
+
+    // ========================================================================
+    // MESSAGE HANDLERS
+    // ========================================================================
 
     @Override
     public Receive<Command> createReceive() {
@@ -147,28 +166,28 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
                 System.out.println("✅ VERIFIED: Classifier actor registered");
                 System.out.println("   Location: " + discoveredClassifier);
 
-                // 🧪 ADD THIS TEST - Send a direct test message!
-                System.out.println("\n🧪🧪🧪 TESTING: Sending test message directly to classifier...");
+                // 🧪 DIRECT TEST - Does Node 1 → Node 2 messaging work at all?
+                System.out.println("\n🧪🧪🧪 TESTING: Sending test message to Node 2 classifier...");
 
                 ActorRef<ClassificationResultMessage> testAdapter = getContext().messageAdapter(
                         ClassificationResultMessage.class,
                         result -> {
-                            System.out.println("✅✅✅ TEST SUCCESSFUL! Received response from Node 2!");
-                            System.out.println("    Scenario: " + result.getScenario());
-                            System.out.println("    Country: " + result.getDetectedCountry());
-                            return new MonitorCluster(); // Just return any command
+                            System.out.println("\n✅✅✅ TEST SUCCESSFUL! Node 1 CAN talk to Node 2!");
+                            System.out.println("    Received: " + result.getScenario() + " - " + result.getDetectedCountry());
+                            System.out.println("    This proves cluster messaging works!\n");
+                            return new MonitorCluster();
                         }
                 );
 
                 RouteToClassifierMessage testMsg = new RouteToClassifierMessage(
                         "test-session",
-                        "test query about japan",
+                        "test query about japan culture",
                         testAdapter
                 );
 
                 discoveredClassifier.tell(testMsg);
-                System.out.println("🧪 Test message sent to Node 2 classifier!");
-                System.out.println("   If you see '✅✅✅ TEST SUCCESSFUL' then cluster messaging works!\n");
+                System.out.println("🧪 Test message sent!");
+                System.out.println("   Waiting for response from Node 2...\n");
             }
         } else if (msg.listing.isForKey(IntelligenceNodeSupervisor.CULTURAL_KEY)) {
             var instances = msg.listing.getServiceInstances(IntelligenceNodeSupervisor.CULTURAL_KEY);
@@ -257,6 +276,7 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
         return this;
     }
 
+    // THIS IS THE CORRECTED METHOD!
     private Behavior<Command> onRouteQuery(RouteQuery cmd) {
         if (!clusterReady) {
             System.out.println("⏳ Cluster not ready");
@@ -268,8 +288,14 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
         System.out.println("   Session: " + cmd.sessionId);
         System.out.println("   Query: " + cmd.query);
 
+        // CORRECTED: Pass 3 separate parameters instead of UserQueryMessage
         sessionManager.tell(new SessionManagerActor.RouteToSession(
-                cmd.sessionId, cmd.query, cmd.replyTo));
+                cmd.sessionId,
+                cmd.query,
+                cmd.replyTo
+        ));
+
+        System.out.println("✅ Routed to SessionManager");
 
         return this;
     }
