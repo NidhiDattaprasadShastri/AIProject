@@ -2,104 +2,148 @@
 
 ## 📋 Project Overview
 
-An AI-powered cross-cultural diplomatic communication assistant built with the **Akka Actor Model** and **Large Language Models (LLM)**. The system provides culturally-informed diplomatic guidance using the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design) for structured negotiation and communication.
+An AI-powered cross-cultural diplomatic communication assistant built with **Akka Cluster** and **Claude AI**. The system provides culturally-informed diplomatic guidance using the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design) for structured negotiation and communication.
 
-### 🎯 Purpose
+This project demonstrates a production-grade distributed actor system deployed across two cluster nodes, with complete implementation of Akka's communication patterns (tell, ask, forward) and real-time LLM integration.
 
-Helps diplomats, international business professionals, and cross-cultural communicators navigate complex diplomatic scenarios by:
-- **Analyzing cultural contexts** for any country or region
-- **Applying diplomatic primitives** (PROPOSE, CLARIFY, CONSTRAIN, REVISE, AGREE, ESCALATE, DEFER)
-- **Providing actionable guidance** informed by cultural intelligence
-- **Managing concurrent sessions** with fault-tolerant actor architecture
+---
+
+## 🎯 Key Features
+
+### Distributed Architecture
+- **2-Node Akka Cluster** with role-based separation
+- **Node 1 (Infrastructure)**: Session management, routing, conversation history
+- **Node 2 (Intelligence)**: Query classification, cultural analysis, LLM processing
+
+### IDEA Framework Integration
+Seven diplomatic primitives for structured negotiation:
+- **PROPOSE** - Present new ideas or solutions
+- **CLARIFY** - Seek or provide understanding
+- **CONSTRAIN** - Define boundaries or requirements
+- **REVISE** - Modify proposals based on feedback
+- **AGREE** - Reach consensus or accept terms
+- **ESCALATE** - Elevate issues to higher authority
+- **DEFER** - Postpone decisions for more information
+
+### Intelligent Query Processing
+- Automatic classification (Cultural vs. Diplomatic Primitive)
+- Country/region detection
+- Context-aware routing across cluster nodes
+- Real-time cultural intelligence via Claude AI
 
 ---
 
 ## 🏗️ Architecture
 
-### System Overview
-
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    USER INTERFACE LAYER                      │
-│                  DiplomaticAssistantCLI                      │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│                   INFRASTRUCTURE LAYER                        │
+┌──────────────────────────────────────────────────────────────┐
+│                    AKKA CLUSTER                              │
 │                                                              │
-│  SupervisorActor (Root Guardian)                            │
-│       │                                                      │
-│       ├──► SessionManagerActor                              │
-│       │       └──► DiplomaticSessionActor (per session)     │
-│       │                                                      │
-│       └──► ConversationHistoryActor                         │
+│  ┌────────────────────────┐      ┌─────────────────────────┐│
+│  │   NODE 1 (Port 2551)   │◄────►│   NODE 2 (Port 2552)    ││
+│  │   Infrastructure       │      │   Intelligence          ││
+│  │                        │      │                         ││
+│  │  - ClusterSupervisor   │      │  - IntelligenceNode     ││
+│  │  - SessionManager      │      │    Supervisor           ││
+│  │  - DiplomaticSession   │      │  - ScenarioClassifier   ││
+│  │  - ConversationHistory │      │  - CulturalContext      ││
+│  │                        │      │  - DiplomaticPrimitives ││
+│  │                        │      │  - LLMProcessor         ││
+│  └────────────────────────┘      └─────────────────────────┘│
 │                                                              │
-└────────────────────────────┬────────────────────────────────┘
-                             │
-┌────────────────────────────▼────────────────────────────────┐
-│                   INTELLIGENCE LAYER                         │
-│                                                              │
-│  IntelligenceSupervisorActor                                │
-│       │                                                      │
-│       ├──► ScenarioClassifierActor                          │
-│       │                                                      │
-│       ├──► CulturalContextActor                             │
-│       │                                                      │
-│       ├──► DiplomaticPrimitivesActor                        │
-│       │                                                      │
-│       └──► LLMProcessorActor                                │
-│                   │                                          │
-│                   ├──► Claude API (Anthropic)               │
-│                   └──► OpenAI API                           │
-│                                                              │
-└─────────────────────────────────────────────────────────────┘
+└──────────────────────────────────────────────────────────────┘
 ```
-
-### Actor Components
-
-#### Infrastructure Layer (Part A)
-- **SupervisorActor**: Root guardian with fault tolerance strategies
-- **SessionManagerActor**: Manages user sessions and routing
-- **DiplomaticSessionActor**: Orchestrates individual consultations
-- **ConversationHistoryActor**: Persists conversation data
-
-#### Intelligence Layer (Part B)
-- **IntelligenceSupervisorActor**: Spawns and manages intelligence actors
-- **ScenarioClassifierActor**: Classifies queries as CULTURAL or PRIMITIVE
-- **CulturalContextActor**: Provides cultural intelligence
-- **DiplomaticPrimitivesActor**: Applies IDEA Framework primitives
-- **LLMProcessorActor**: Handles API calls to Claude/OpenAI
 
 ### Message Flow
 
 ```
-User Query
+User Query (Node 1 CLI)
     │
-    ▼
-DiplomaticSessionActor
+    ├─► ClusterSupervisorActor
+    │       │
+    │       ├─► SessionManagerActor
+    │       │       │
+    │       │       └─► DiplomaticSessionActor
+    │       │               │
+    │       │               └─► [CLUSTER BOUNDARY]
+    │       │                       │
+    │       │                       ▼
+    │       │               ScenarioClassifierActor (Node 2)
+    │       │                       │
+    │       │                       ├─► CulturalContextActor
+    │       │                       │       │
+    │       │                       │       └─► LLMProcessorActor
+    │       │                       │               │
+    │       │                       │               └─► Claude API
+    │       │                       │
+    │       │                       └─► DiplomaticPrimitivesActor
+    │       │                               │
+    │       │                               └─► LLMProcessorActor
+    │       │                                       │
+    │       │                                       └─► Claude API
+    │       │
+    │       └─► ConversationHistoryActor (fire-and-forget)
     │
-    ├──► ScenarioClassifierActor
-    │         │
-    │         └──► Classification Result
-    │
-    ├──► CulturalContextActor (if CULTURAL)
-    │         │
-    │         └──► Cultural Analysis
-    │
-    └──► DiplomaticPrimitivesActor (if PRIMITIVE)
-              │
-              └──► Diplomatic Guidance
-                        │
-                        ▼
-                   LLMProcessorActor
-                        │
-                        └──► Claude/OpenAI API
-                                  │
-                                  ▼
-                            Response to User
-                                  │
-                                  ▼
-                        ConversationHistoryActor
+    └─► Response to User
+```
+
+---
+
+## 📦 Project Structure
+
+```
+diplomatic-assistant/
+├── src/
+│   ├── main/
+│   │   ├── java/com/diplomatic/
+│   │   │   │
+│   │   │   ├── actors/
+│   │   │   │   ├── infrastructure/
+│   │   │   │   │   ├── ClusterSupervisorActor.java
+│   │   │   │   │   ├── SessionManagerActor.java
+│   │   │   │   │   ├── DiplomaticSessionActor.java
+│   │   │   │   │   └── ConversationHistoryActor.java
+│   │   │   │   │
+│   │   │   │   └── intelligence/
+│   │   │   │       ├── IntelligenceNodeSupervisor.java
+│   │   │   │       ├── ScenarioClassifierActor.java
+│   │   │   │       ├── CulturalContextActor.java
+│   │   │   │       ├── DiplomaticPrimitivesActor.java
+│   │   │   │       └── LLMProcessorActor.java
+│   │   │   │
+│   │   │   ├── messages/
+│   │   │   │   ├── CborSerializable.java (interface)
+│   │   │   │   ├── ClassificationResultMessage.java
+│   │   │   │   ├── CulturalAnalysisRequest.java
+│   │   │   │   ├── CulturalAnalysisRequestMessage.java
+│   │   │   │   ├── CulturalAnalysisResponseMessage.java
+│   │   │   │   ├── DiplomaticPrimitiveRequestMessage.java
+│   │   │   │   ├── DiplomaticPrimitiveResponseMessage.java
+│   │   │   │   ├── LLMRequestMessage.java
+│   │   │   │   ├── LLMResponseMessage.java
+│   │   │   │   ├── RouteToClassifierMessage.java
+│   │   │   │   ├── SaveConversationMessage.java
+│   │   │   │   └── SessionCreatedMessage.java
+│   │   │   │
+│   │   │   ├── Node1App.java (Infrastructure Node Entry)
+│   │   │   └── Node2App.java (Intelligence Node Entry)
+│   │   │
+│   │   └── resources/
+│   │       ├── application-node1.conf
+│   │       ├── application-node2.conf
+│   │       └── logback.xml
+│   │
+│   └── test/
+│       └── java/com/diplomatic/
+│           └── actors/
+│               └── DiplomaticSessionActorTest.java
+│
+├── pom.xml
+├── dependency-reduced-pom.xml
+├── start-node1.sh
+├── start-node2.sh
+├── CLUSTER_DEPLOYMENT.md
+└── README.md
 ```
 
 ---
@@ -110,8 +154,8 @@ DiplomaticSessionActor
 
 - **Java 17** or higher
 - **Maven 3.8+**
-- **API Key** for Claude (Anthropic) or OpenAI
-- **Git** (for version control)
+- **Claude API Key** from Anthropic
+- **2 Terminal Windows** (one for each node)
 
 ### Installation
 
@@ -121,18 +165,9 @@ git clone <repository-url>
 cd diplomatic-assistant
 ```
 
-2. **Set up API credentials**
-
-**For Claude (Recommended):**
+2. **Set up Claude API credentials**
 ```bash
-export LLM_API_KEY="your-anthropic-api-key"
-export LLM_PROVIDER="CLAUDE"
-```
-
-**For OpenAI:**
-```bash
-export LLM_API_KEY="your-openai-api-key"
-export LLM_PROVIDER="OPENAI"
+export LLM_API_KEY="sk-ant-your-api-key-here"
 ```
 
 3. **Compile the project**
@@ -140,149 +175,323 @@ export LLM_PROVIDER="OPENAI"
 mvn clean compile
 ```
 
-4. **Run tests**
-```bash
-mvn test
-```
-
-5. **Run the application**
-```bash
-mvn exec:java -Dexec.mainClass="com.diplomatic.DiplomaticAssistantApp"
-```
-
-### Building Executable JAR
-
-```bash
-mvn clean package
-java -jar target/AIProject-1.0-SNAPSHOT.jar
-```
-
 ---
 
-## 💻 Usage
+## 🎮 Running the Cluster
 
-### Starting the Application
+### Step 1: Start Node 1 (Infrastructure)
 
+**Terminal 1:**
 ```bash
-mvn exec:java -Dexec.mainClass="com.diplomatic.DiplomaticAssistantApp"
+chmod +x start-node1.sh
+./start-node1.sh
 ```
 
-### Command-Line Interface
+**Or manually:**
+```bash
+mvn exec:java \
+    -Dexec.mainClass="com.diplomatic.Node1App" \
+    -Dconfig.file=src/main/resources/application-node1.conf
+```
 
+**Expected Output:**
 ```
 ╔═══════════════════════════════════════════════════════════════╗
-║        CROSS-CULTURAL DIPLOMATIC ASSISTANT                    ║
-║        Powered by AKKA Actor Model & AI                       ║
+║       DIPLOMATIC ASSISTANT - NODE 1 (Infrastructure)         ║
+║       Port: 2551 | Roles: [infrastructure, frontend]         ║
+╚═══════════════════════════════════════════════════════════════╝
+
+🚀 Node 1 starting...
+📍 Address: akka://DiplomaticAssistantSystem@127.0.0.1:2551
+🎭 Roles: [infrastructure, frontend]
+⏳ Waiting for cluster formation...
+```
+
+### Step 2: Start Node 2 (Intelligence)
+
+**Terminal 2:**
+```bash
+chmod +x start-node2.sh
+./start-node2.sh
+```
+
+**Or manually:**
+```bash
+mvn exec:java \
+    -Dexec.mainClass="com.diplomatic.Node2App" \
+    -Dconfig.file=src/main/resources/application-node2.conf
+```
+
+**Expected Output:**
+```
+╔═══════════════════════════════════════════════════════════════╗
+║       DIPLOMATIC ASSISTANT - NODE 2 (Intelligence)           ║
+║       Port: 2552 | Roles: [intelligence, backend]            ║
 ╚═══════════════════════════════════════════════════════════════╝
 
 🤖 Using LLM Provider: CLAUDE
 ✓ API Key configured
-🔡 Starting distributed actor system...
-
-✓ Intelligence actors initialized
-✓ System ready
-
-Enter your name or ID (press Enter for auto-generated):
+🚀 Node 2 starting...
+📍 Address: akka://DiplomaticAssistantSystem@127.0.0.1:2552
 ```
 
-### Example Interactions
+### Step 3: Verify Cluster Formation
 
-#### Cultural Question
+Both terminals should show:
 ```
-You: How should I greet a Japanese diplomat at a formal meeting?
-
-🤖 Assistant:
-
-In Japanese diplomatic culture, greeting protocols emphasize respect and 
-hierarchy. Key considerations:
-
-1. BOW FIRST: A respectful bow (15-30 degrees) before handshake
-2. EXCHANGE BUSINESS CARDS: Use both hands, read carefully before pocketing
-3. USE TITLES: Address by title + san (e.g., "Ambassador Tanaka-san")
-4. WAIT FOR SENIOR: Let the highest-ranking person greet first
-
-Avoid: Overly firm handshakes, prolonged eye contact, casual first names
+✅ Member UP: akka://DiplomaticAssistantSystem@127.0.0.1:2551
+✅ Member UP: akka://DiplomaticAssistantSystem@127.0.0.1:2552
+🎉 CLUSTER READY! 2 nodes connected
 ```
 
-#### Diplomatic Primitive
+### Step 4: Use the Interactive CLI
+
+After ~15 seconds, Node 1 will start the interactive CLI:
+
 ```
-You: How should I propose a new trade agreement with Germany?
+╔═══════════════════════════════════════════════════════════════╗
+║  CROSS-CULTURAL DIPLOMATIC ASSISTANT                         ║
+║  Powered by Akka Cluster & IDEA Framework                    ║
+╚═══════════════════════════════════════════════════════════════╝
 
-🤖 Assistant:
+Enter your name (or press Enter for 'Diplomat'): 
+```
 
-When proposing trade agreements with German counterparts, follow these 
-strategies:
+---
 
-STRATEGY: Germans value directness, thoroughness, and data-driven proposals
+## 💬 Usage Examples
 
-KEY ACTIONS:
-1. Present detailed analysis with supporting data
-2. Use clear, direct language without ambiguity
-3. Prepare for critical questions and challenges
-4. Show long-term sustainability and risk mitigation
+### Cultural Questions
 
-EXPECTED OUTCOMES:
-- Thorough questioning of assumptions
-- Request for additional documentation
-- Emphasis on legal compliance and process
+```
+You: How should I greet Japanese diplomats at a formal meeting?
 
-NEXT STEPS:
-- Prepare comprehensive written proposal
-- Schedule formal presentation meeting
-- Allow time for internal review process
+╔═══════════════════════════════════════════════════════════════╗
+║  DIPLOMATIC ASSISTANT RESPONSE                                ║
+╚═══════════════════════════════════════════════════════════════╝
 
-[Diplomatic Primitive: PROPOSE]
+In Japanese diplomatic culture, formal greetings emphasize respect 
+and hierarchy:
+
+1. **Bow First**: A respectful bow (15-30 degrees) before any handshake
+2. **Business Card Exchange**: Use both hands, read carefully before 
+   pocketing (meishi koukan)
+3. **Titles Matter**: Address by title + san (e.g., "Ambassador Tanaka-san")
+4. **Wait for Seniority**: Let the highest-ranking person initiate
+
+Avoid: Overly firm handshakes, prolonged direct eye contact, using 
+first names immediately.
+
+───────────────────────────────────────────────────────────────
+```
+
+### Diplomatic Primitives
+
+```
+You: How should I propose a trade agreement with Germany?
+
+╔═══════════════════════════════════════════════════════════════╗
+║  DIPLOMATIC ASSISTANT RESPONSE                                ║
+╚═══════════════════════════════════════════════════════════════╝
+
+# Strategy: PROPOSE Primitive
+Germans value directness, thoroughness, and data-driven proposals.
+
+## Key Actions:
+1. **Prepare Comprehensive Documentation**: Detailed analysis with 
+   supporting data and risk assessments
+2. **Be Direct and Clear**: Avoid ambiguity; state terms explicitly
+3. **Anticipate Scrutiny**: Prepare for critical questions and 
+   challenges to assumptions
+4. **Show Long-term Value**: Emphasize sustainability and mutual benefit
+
+## Expected Outcomes:
+- Thorough questioning of all assumptions
+- Requests for additional documentation
+- Focus on legal compliance and process adherence
+
+## Next Steps:
+1. Develop formal written proposal with appendices
+2. Schedule presentation meeting (allow 2+ hours)
+3. Prepare backup data for every claim
+4. Allow 2-4 weeks for internal review process
+
+[Primitive: PROPOSE]
+
+───────────────────────────────────────────────────────────────
 ```
 
 ### Available Commands
 
-- `help` - Display example queries and usage guide
-- `exit` or `quit` - End session and shutdown
+- **help** - Display example queries and usage guide
+- **exit** or **quit** - End session and shutdown
 - Any other input - Process as diplomatic query
+
+---
+
+## 🔑 API Setup
+
+### Getting Your Claude API Key
+
+1. Visit [console.anthropic.com](https://console.anthropic.com)
+2. Sign up or log in to your account
+3. Navigate to **API Keys** in the sidebar
+4. Click **Create Key**
+5. Copy your API key (starts with `sk-ant-`)
+6. Set the environment variable:
+
+```bash
+export LLM_API_KEY="sk-ant-your-key-here"
+```
+
+**Model Used:** `claude-sonnet-4-20250514`
 
 ---
 
 ## ⚙️ Configuration
 
-### Application Configuration (`application.conf`)
+### Node 1 Configuration (`application-node1.conf`)
 
 ```hocon
 akka {
   loglevel = "INFO"
-  
   actor {
-    provider = local
-    
-    default-dispatcher {
-      type = Dispatcher
-      executor = "thread-pool-executor"
-      thread-pool-executor {
-        fixed-pool-size = 16
-      }
-      throughput = 5
+    provider = cluster
+    serialization-bindings {
+      "com.diplomatic.messages.CborSerializable" = jackson-cbor
     }
   }
-}
-
-diplomatic-assistant {
-  session-timeout-minutes = 30
-  max-active-sessions = 100
+  remote.artery {
+    canonical {
+      hostname = "127.0.0.1"
+      port = 2551
+    }
+  }
+  cluster {
+    seed-nodes = [
+      "akka://DiplomaticAssistantSystem@127.0.0.1:2551",
+      "akka://DiplomaticAssistantSystem@127.0.0.1:2552"
+    ]
+    roles = ["infrastructure", "frontend"]
+  }
 }
 ```
 
-### Logging Configuration (`logback.xml`)
+### Node 2 Configuration (`application-node2.conf`)
 
-Located in `src/main/resources/logback.xml`:
-- Default level: INFO
-- Console output with timestamps
-- Actor system logging enabled
+```hocon
+akka {
+  loglevel = "INFO"
+  actor {
+    provider = cluster
+    serialization-bindings {
+      "com.diplomatic.messages.CborSerializable" = jackson-cbor
+    }
+  }
+  remote.artery {
+    canonical {
+      hostname = "127.0.0.1"
+      port = 2552
+    }
+  }
+  cluster {
+    seed-nodes = [
+      "akka://DiplomaticAssistantSystem@127.0.0.1:2551",
+      "akka://DiplomaticAssistantSystem@127.0.0.1:2552"
+    ]
+    roles = ["intelligence", "backend"]
+  }
+}
+```
 
-### Environment Variables
+---
 
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `LLM_API_KEY` | API key for Claude or OpenAI | Required |
-| `LLM_PROVIDER` | `CLAUDE` or `OPENAI` | `CLAUDE` |
+## 🎓 Academic Context - IDEA Framework
+
+This project implements the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design), which applies computational diplomacy concepts to enterprise architecture and international relations.
+
+### Research Foundation
+
+The IDEA Framework treats diplomatic dialogue and technical architecture as integrated systems rather than separate processes. Key concepts:
+
+- **Computational Diplomacy Primitives**: Formalized diplomatic actions (PROPOSE, CLARIFY, CONSTRAIN, etc.)
+- **Cross-Cultural Communication Models**: Hofstede dimensions, cultural intelligence integration
+- **Enterprise Architecture Alignment**: TOGAF and Zachman Framework integration
+- **Transparent AI Systems**: Using open models (Claude) with reproducible prompting
+
+### Academic Validation
+
+This framework has been validated through expert interviews, including:
+- Turkish Ambassador to Mauritania (confirmed power dynamics challenges)
+- Enterprise architecture practitioners across multiple sectors
+- Cross-cultural communication experts
+
+---
+
+## 📚 Project Requirements Demonstrated
+
+This project fulfills all academic requirements:
+
+### ✅ 1. Akka Cluster (2 Nodes)
+- Node 1 (Port 2551): Infrastructure/Frontend
+- Node 2 (Port 2552): Intelligence/Backend
+- Proper seed node configuration and cluster formation
+
+### ✅ 2. Service-Specific Actors
+
+**Node 1 (4 actors):**
+- ClusterSupervisorActor - Cluster management
+- SessionManagerActor - Session lifecycle
+- DiplomaticSessionActor - Query orchestration
+- ConversationHistoryActor - Persistence
+
+**Node 2 (5 actors):**
+- IntelligenceNodeSupervisor - Intelligence coordination
+- ScenarioClassifierActor - Query classification
+- CulturalContextActor - Cultural intelligence
+- DiplomaticPrimitivesActor - IDEA Framework logic
+- LLMProcessorActor - Claude API integration
+
+### ✅ 3. Communication Patterns
+
+**TELL (fire-and-forget):**
+```java
+// DiplomaticSessionActor → ConversationHistoryActor
+historyManager.tell(new ConversationHistoryActor.SaveConversation(
+    new SaveConversationMessage(sessionId, query, response)));
+```
+
+**ASK (request-response via adapter):**
+```java
+// DiplomaticSessionActor → ScenarioClassifierActor
+ActorRef<ClassificationResultMessage> adapter = getContext().messageAdapter(
+    ClassificationResultMessage.class,
+    result -> new HandleClassification(result, query)
+);
+classifierActor.tell(new RouteToClassifierMessage(sessionId, query, adapter));
+```
+
+**FORWARD (preserve sender context):**
+```java
+// DiplomaticSessionActor → CulturalContextActor (preserving replyTo)
+culturalActor.tell(new CulturalAnalysisRequest(
+    query, country, adapter)); // adapter preserves original sender
+```
+
+### ✅ 4. LLM Integration
+- LLMProcessorActor handles all Claude API communication
+- Async processing using CompletableFuture
+- Error handling and fallback responses
+- Model: claude-sonnet-4-20250514
+
+### ✅ 5. Complete Message Flow
+1. User query → Node 1 CLI
+2. Route through ClusterSupervisor → SessionManager → DiplomaticSession
+3. Ask classifier (Node 2) for scenario detection
+4. Forward to Cultural/Primitives actors
+5. LLM processing via Claude API
+6. Tell history actor (fire-and-forget)
+7. Return response to user
 
 ---
 
@@ -293,275 +502,206 @@ Located in `src/main/resources/logback.xml`:
 mvn test
 ```
 
-### Run Specific Test Class
+### Run Specific Test
 ```bash
 mvn test -Dtest=DiplomaticSessionActorTest
 ```
 
-### Current Test Coverage
+### Manual Testing Checklist
 
-- ✅ Actor message handling
-- ✅ Session management
-- ✅ Message routing
-- ✅ Classification logic
-- ✅ History persistence
-
----
-
-## 📦 Project Structure
-
-```
-diplomatic-assistant/
-├── pom.xml                          # Maven configuration
-├── README.md                        # This file
-├── .gitignore
-│
-├── src/
-│   ├── main/
-│   │   ├── java/com/diplomatic/
-│   │   │   │
-│   │   │   ├── actors/
-│   │   │   │   ├── infrastructure/
-│   │   │   │   │   ├── SupervisorActor.java
-│   │   │   │   │   ├── SessionManagerActor.java
-│   │   │   │   │   ├── DiplomaticSessionActor.java
-│   │   │   │   │   └── ConversationHistoryActor.java
-│   │   │   │   │
-│   │   │   │   └── intelligence/
-│   │   │   │       ├── IntelligenceSupervisorActor.java
-│   │   │   │       ├── ScenarioClassifierActor.java
-│   │   │   │       ├── CulturalContextActor.java
-│   │   │   │       ├── DiplomaticPrimitivesActor.java
-│   │   │   │       └── LLMProcessorActor.java
-│   │   │   │
-│   │   │   ├── messages/
-│   │   │   │   ├── UserQueryMessage.java
-│   │   │   │   ├── ClassificationResultMessage.java
-│   │   │   │   ├── CulturalAnalysisRequest.java
-│   │   │   │   ├── CulturalAnalysisRequestMessage.java
-│   │   │   │   ├── CulturalAnalysisResponseMessage.java
-│   │   │   │   ├── DiplomaticPrimitiveRequestMessage.java
-│   │   │   │   ├── DiplomaticPrimitiveResponseMessage.java
-│   │   │   │   ├── LLMRequestMessage.java
-│   │   │   │   ├── LLMResponseMessage.java
-│   │   │   │   ├── SaveConversationMessage.java
-│   │   │   │   └── ... (17 total message classes)
-│   │   │   │
-│   │   │   ├── Models/
-│   │   │   │   ├── Session.java
-│   │   │   │   ├── ConversationEntry.java
-│   │   │   │   └── UserContext.java
-│   │   │   │
-│   │   │   ├── DiplomaticAssistantApp.java    # Main entry point
-│   │   │   └── DiplomaticAssistantCLI.java    # User interface
-│   │   │
-│   │   └── resources/
-│   │       ├── application.conf               # Akka configuration
-│   │       └── logback.xml                   # Logging configuration
-│   │
-│   └── test/
-│       └── java/com/diplomatic/
-│           └── actors/
-│               └── DiplomaticSessionActorTest.java
-│
-└── target/                                    # Compiled output (generated)
-```
+- [ ] Both nodes start successfully
+- [ ] Cluster forms (2 nodes connected)
+- [ ] Intelligence actors register with receptionist
+- [ ] Session creation works
+- [ ] Cultural queries route correctly
+- [ ] Primitive queries route correctly
+- [ ] Claude API responses are received
+- [ ] Conversation history saves
+- [ ] Graceful shutdown works
 
 ---
 
-## 🔑 API Setup Guide
+## 🛠️ Troubleshooting
 
-### Getting Claude API Key (Anthropic)
+### Cluster Won't Form
 
-1. Visit [console.anthropic.com](https://console.anthropic.com)
-2. Sign up or log in
-3. Navigate to "API Keys"
-4. Create a new key
-5. Copy and set as environment variable:
-   ```bash
-   export LLM_API_KEY="sk-ant-..."
-   ```
+**Problem:** Nodes don't see each other
 
-### Getting OpenAI API Key
-
-1. Visit [platform.openai.com](https://platform.openai.com)
-2. Sign up or log in
-3. Navigate to "API Keys"
-4. Create a new key
-5. Copy and set as environment variable:
-   ```bash
-   export LLM_API_KEY="sk-..."
-   export LLM_PROVIDER="OPENAI"
-   ```
-
-### Supported Models
-
-- **Claude**: `claude-sonnet-4-20250514` (default)
-- **OpenAI**: `gpt-4`
-
----
-
-## 🎓 IDEA Framework
-
-The system implements the **IDEA Framework** (Integrated Diplomatic Enterprise Architecture Design) with seven diplomatic primitives:
-
-| Primitive | Purpose | Example Usage |
-|-----------|---------|---------------|
-| **PROPOSE** | Present new ideas, terms, or solutions | "How should I propose a partnership with China?" |
-| **CLARIFY** | Seek or provide understanding | "Help me clarify contract terms with French partners" |
-| **CONSTRAIN** | Define boundaries and limitations | "Setting deadlines in Middle Eastern negotiations" |
-| **REVISE** | Modify proposals based on feedback | "How to suggest changes without offense in Japan?" |
-| **AGREE** | Reach consensus or accept terms | "Finalizing agreements with Brazilian counterparts" |
-| **ESCALATE** | Elevate to higher authority | "When to escalate issues in Turkish negotiations?" |
-| **DEFER** | Postpone decisions strategically | "Requesting more time in Korean business culture" |
-
----
-
-## 🛠️ Development
-
-### Adding New Intelligence Actors
-
-1. Create actor class in `actors/intelligence/`
-2. Define message protocol
-3. Register in `IntelligenceSupervisorActor`
-4. Update routing in `DiplomaticSessionActor`
-
-### Extending Cultural Knowledge
-
-The system uses LLM-powered cultural intelligence, so expanding coverage requires:
-1. Update country detection in `ScenarioClassifierActor`
-2. Add cultural keywords if needed
-3. No hard-coded cultural data required
-
-### Custom LLM Provider
-
-Implement in `LLMProcessorActor`:
-```java
-private String callCustomLLMAPI(String prompt) throws Exception {
-    // Your implementation
-}
-```
-
----
-
-## 🐛 Troubleshooting
-
-### Application won't start
+**Solution:**
 ```bash
-# Check Java version
-java -version  # Should be 17+
+# Check ports are available
+lsof -i :2551
+lsof -i :2552
 
-# Clean and rebuild
-mvn clean compile
+# Ensure both nodes use same system name
+grep "DiplomaticAssistantSystem" src/main/resources/*.conf
 ```
 
-### "Cannot find symbol" errors
-```bash
-# Clean Maven cache
-mvn clean install -U
-```
+### API Key Not Working
 
-### API Key not recognized
+**Problem:** `LLM_API_KEY not found` or API errors
+
+**Solution:**
 ```bash
 # Verify environment variable
 echo $LLM_API_KEY
 
-# Set in current session
-export LLM_API_KEY="your-key-here"
+# Re-export if needed
+export LLM_API_KEY="sk-ant-your-key-here"
+
+# Check API key is valid at console.anthropic.com
 ```
 
-### Actor system errors
-- Check `application.conf` syntax
-- Review logs in console output
-- Ensure all dependencies are present
+### Node 2 Won't Start
 
-### No LLM responses
-- Verify API key is valid
-- Check network connectivity
-- Review LLMProcessorActor logs
-- Ensure API provider matches key type
+**Problem:** Intelligence actors fail to initialize
+
+**Solution:**
+- Ensure Node 1 is running first
+- Wait 5-10 seconds after Node 1 starts
+- Check Node 1 logs show "CLUSTER READY"
+- Verify API key is set
+
+### "Actor Not Found" Errors
+
+**Problem:** Intelligence actors not discovered
+
+**Solution:**
+- Wait 10-15 seconds after cluster formation
+- Check Node 2 logs show "registered with receptionist"
+- Verify both nodes show "CLUSTER READY"
+- Restart both nodes if needed
 
 ---
 
 ## 📊 Performance Characteristics
 
-- **Concurrent Sessions**: Up to 100 active sessions
-- **Response Time**: 2-5 seconds typical (depends on LLM API)
-- **Actor Throughput**: 16 concurrent operations
-- **Fault Tolerance**: Auto-restart on failure (3 attempts)
+- **Concurrent Sessions**: Up to 100 active sessions per node
+- **Response Time**: 2-5 seconds (depends on Claude API latency)
+- **Actor Throughput**: 16 concurrent operations per node
+- **Fault Tolerance**: Automatic restart on failure (3 attempts)
+- **Cluster Recovery**: Automatic rejoin after network partition
 
 ---
 
-## 🔐 Security Considerations
+## 🔒 Security Considerations
 
 - **API Keys**: Never commit to version control
-- **Environment Variables**: Use `.env` files or system environment
+- **Environment Variables**: Always use for sensitive data
 - **Session Data**: Stored in-memory only (not persistent)
-- **Logging**: Be cautious about logging sensitive diplomatic content
+- **Network**: Local deployment only (127.0.0.1)
+- **Logging**: Sensitive data not logged by default
 
 ---
 
-## 📚 Academic Context
+## 📝 Building for Production
 
-This project implements concepts from:
-- **IDEA Framework**: Computational diplomacy primitives
-- **Actor Model**: Concurrent, distributed systems (Carl Hewitt, 1973)
-- **Enterprise Architecture**: TOGAF, Zachman Framework integration
-- **Cross-Cultural Communication**: Hofstede dimensions, cultural intelligence
+### Create Executable JAR
 
-### Related Research
-- Computational models of negotiation
-- Task-oriented dialogue systems
-- Cross-cultural communication patterns
-- Enterprise architecture frameworks
+```bash
+mvn clean package
+```
 
----
+This creates: `target/AIProject-1.0-SNAPSHOT.jar`
 
-## 🤝 Contributing
+### Run from JAR
 
-This is an academic research project. For questions or collaboration:
-- Review the IDEA Framework documentation
-- Check existing issues and message protocols
-- Follow the actor model patterns established
-- Maintain separation between infrastructure and intelligence layers
+```bash
+# Node 1
+java -Dconfig.file=src/main/resources/application-node1.conf \
+     -jar target/AIProject-1.0-SNAPSHOT.jar \
+     com.diplomatic.Node1App
 
----
-
-## 📄 License
-
-[Your License Here]
+# Node 2
+java -Dconfig.file=src/main/resources/application-node2.conf \
+     -jar target/AIProject-1.0-SNAPSHOT.jar \
+     com.diplomatic.Node2App
+```
 
 ---
 
-## 👤 Author
+## 🚦 Stopping the Cluster
 
-**Yasmin**  
+**Graceful Shutdown:**
+1. Type `exit` in Node 1 CLI
+2. Press `Ctrl+C` in Node 2 terminal
+3. Press `Ctrl+C` in Node 1 terminal (if needed)
+
+**Force Stop:**
+```bash
+# Find processes
+ps aux | grep java | grep Diplomatic
+
+# Kill processes
+kill -9 <PID>
+```
+
+---
+
+## 📖 Additional Documentation
+
+- **CLUSTER_DEPLOYMENT.md** - Detailed deployment guide with screenshots
+- **pom.xml** - Maven dependencies and build configuration
+- **logback.xml** - Logging configuration
+
+---
+
+## 👥 Author
+
+**Yasmin Almousa**  
 MS in Software Engineering Systems  
-Northeastern University  
-Systems Engineer at General Dynamics Mission Systems
-
-**Advisor**: Professor Kal Bugrara
+Northeastern University
+**Nidhi Dattaprasad Shastri**  
+MS in Software Engineering Systems  
+Northeastern University
+ 
+**Course**: CSYE 7374 - Intro to AI Agent Infrastructure
 
 ---
 
 ## 🎯 Project Status
 
-✅ **Complete and Operational**
-- Infrastructure Layer (Part A): Complete
-- Intelligence Layer (Part B): Complete
-- LLM Integration: Claude & OpenAI supported
-- CLI Interface: Fully functional
-- Message Protocol: 17 message types implemented
-- Actor System: Fault-tolerant and concurrent
+**Status:** ✅ Complete and Operational
 
-**Future Enhancements**:
+**Implemented Features:**
+- ✅ 2-node Akka Cluster with role separation
+- ✅ 9 service-specific actors (4 on Node 1, 5 on Node 2)
+- ✅ All communication patterns (tell, ask, forward)
+- ✅ Claude AI integration
+- ✅ Complete message flow across cluster
+- ✅ IDEA Framework diplomatic primitives
+- ✅ Cultural intelligence system
+- ✅ Interactive CLI interface
+- ✅ Conversation history persistence
+- ✅ Error handling and fault tolerance
+
+**Future Enhancements:**
 - Web-based user interface
 - REST API for programmatic access
-- Conversation analytics dashboard
-- Multi-language support
-- Persistent conversation storage
+- Multi-language support (beyond English)
+- Persistent conversation storage (database)
+- Analytics dashboard
+- Additional LLM providers
 
 ---
 
-**Last Updated**: December 2024  
-**Version**: 1.0-SNAPSHOT
+## 📜 License
+
+This is an academic research project developed for educational purposes at Northeastern University.
+
+---
+
+## 🙏 Acknowledgments
+
+- **Anthropic** - Claude AI API
+- **Lightbend/Akka** - Actor model framework
+- **Northeastern University** - Academic support
+- **Professor Yusuf Ozbek** - Project guidance
+- **Professor Kal Bugrara** - Project guidance
+- **Ambassador Emrah Bey** - IDEA Framework validation
+
+---
+
+**Last Updated:** December 2025  
+**Version:** 1.0  
+**Model:** claude-sonnet-4-20250514

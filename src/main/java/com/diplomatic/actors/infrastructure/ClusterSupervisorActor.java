@@ -20,7 +20,6 @@ import scala.collection.Iterator;
 
 /**
  * Cluster-Aware Supervisor for Node 1 (Infrastructure)
- * COMPLETE CORRECTED VERSION - NO MORE ERRORS!
  */
 public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorActor.Command> {
 
@@ -54,7 +53,6 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
         }
     }
 
-    // CORRECTED: RouteQuery with separate fields (NO UserQueryMessage!)
     public static final class RouteQuery implements Command {
         public final String sessionId;
         public final String query;
@@ -104,18 +102,17 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
                 Receptionist.register(SUPERVISOR_KEY, context.getSelf())
         );
 
-        // Regular child actor (NO singleton!)
         this.sessionManager = context.spawn(
                 SessionManagerActor.create(),
                 "session-manager"
         );
 
-        System.out.println("╔════════════════════════════════════════════════════════════╗");
-        System.out.println("║  NODE 1: Infrastructure Supervisor Started                ║");
-        System.out.println("║  Actors: SessionManager (NO SINGLETON), ConversationHistory║");
-        System.out.println("╚════════════════════════════════════════════════════════════╝");
-        System.out.println("📡 Registered ClusterSupervisor with receptionist");
-        System.out.println("✅ SessionManager spawned as regular actor");
+        System.out.println("╔══════════════════════════════════════════════════════════╗");
+        System.out.println("║  NODE 1: Infrastructure Supervisor Started              ║");
+        System.out.println("║  Actors: SessionManager, ConversationHistory             ║");
+        System.out.println("╚══════════════════════════════════════════════════════════╝");
+        logger.info("ClusterSupervisor registered with receptionist");
+        logger.info("SessionManager spawned as regular actor");
     }
 
     // ========================================================================
@@ -145,14 +142,14 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
 
         cluster.subscriptions().tell(Subscribe.create(reachabilityAdapter, ClusterEvent.ReachabilityEvent.class));
 
-        System.out.println("📡 Cluster monitoring activated");
-        System.out.println("🔍 Current cluster state: " + cluster.state());
-        System.out.println("📊 Current members in cluster:");
+        logger.info("Cluster monitoring activated");
+        logger.info("Current cluster state: {}", cluster.state());
+        logger.info("Current members in cluster:");
 
         Iterator<akka.cluster.Member> members = cluster.state().members().iterator();
         while (members.hasNext()) {
             akka.cluster.Member member = members.next();
-            System.out.println("   - " + member.uniqueAddress() + " [" + member.roles() + "]");
+            logger.info("   - {} [{}]", member.uniqueAddress(), member.roles());
         }
 
         return this;
@@ -163,50 +160,24 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
             var instances = msg.listing.getServiceInstances(IntelligenceNodeSupervisor.CLASSIFIER_KEY);
             if (!instances.isEmpty()) {
                 discoveredClassifier = instances.iterator().next();
-                System.out.println("✅ VERIFIED: Classifier actor registered");
-                System.out.println("   Location: " + discoveredClassifier);
-
-                // 🧪 DIRECT TEST - Does Node 1 → Node 2 messaging work at all?
-                System.out.println("\n🧪🧪🧪 TESTING: Sending test message to Node 2 classifier...");
-
-                ActorRef<ClassificationResultMessage> testAdapter = getContext().messageAdapter(
-                        ClassificationResultMessage.class,
-                        result -> {
-                            System.out.println("\n✅✅✅ TEST SUCCESSFUL! Node 1 CAN talk to Node 2!");
-                            System.out.println("    Received: " + result.getScenario() + " - " + result.getDetectedCountry());
-                            System.out.println("    This proves cluster messaging works!\n");
-                            return new MonitorCluster();
-                        }
-                );
-
-                RouteToClassifierMessage testMsg = new RouteToClassifierMessage(
-                        "test-session",
-                        "test query about japan culture",
-                        testAdapter
-                );
-
-                discoveredClassifier.tell(testMsg);
-                System.out.println("🧪 Test message sent!");
-                System.out.println("   Waiting for response from Node 2...\n");
+                logger.info("✅ Classifier actor discovered: {}", discoveredClassifier);
             }
         } else if (msg.listing.isForKey(IntelligenceNodeSupervisor.CULTURAL_KEY)) {
             var instances = msg.listing.getServiceInstances(IntelligenceNodeSupervisor.CULTURAL_KEY);
             if (!instances.isEmpty()) {
                 discoveredCultural = instances.iterator().next();
-                System.out.println("✅ VERIFIED: Cultural actor registered");
-                System.out.println("   Location: " + discoveredCultural);
+                logger.info("✅ Cultural actor discovered: {}", discoveredCultural);
             }
         } else if (msg.listing.isForKey(IntelligenceNodeSupervisor.PRIMITIVES_KEY)) {
             var instances = msg.listing.getServiceInstances(IntelligenceNodeSupervisor.PRIMITIVES_KEY);
             if (!instances.isEmpty()) {
                 discoveredPrimitives = instances.iterator().next();
-                System.out.println("✅ VERIFIED: Primitives actor registered");
-                System.out.println("   Location: " + discoveredPrimitives);
+                logger.info("✅ Primitives actor discovered: {}", discoveredPrimitives);
             }
         }
 
         if (discoveredClassifier != null && discoveredCultural != null && discoveredPrimitives != null) {
-            System.out.println("🔗 All intelligence actors discovered!");
+            logger.info("🔗 All intelligence actors discovered - configuring SessionManager");
             sessionManager.tell(new SessionManagerActor.SetIntelligenceActors(
                     discoveredClassifier, discoveredCultural, discoveredPrimitives));
         }
@@ -215,21 +186,21 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
     }
 
     private Behavior<Command> onClusterEvent(ClusterEventMessage msg) {
-        System.out.println("🔔 Cluster event: " + msg.event.getClass().getSimpleName());
+        logger.info("Cluster event: {}", msg.event.getClass().getSimpleName());
 
         if (msg.event instanceof ClusterEvent.MemberUp) {
             ClusterEvent.MemberUp memberUp = (ClusterEvent.MemberUp) msg.event;
-            System.out.println("✅ Member UP: " + memberUp.member().uniqueAddress() +
-                    " with roles " + memberUp.member().roles());
+            logger.info("✅ Member UP: {} with roles {}",
+                    memberUp.member().uniqueAddress(), memberUp.member().roles());
 
             int memberCount = cluster.state().members().size();
-            System.out.println("🔍 Total members in cluster: " + memberCount);
+            logger.info("Total members in cluster: {}", memberCount);
 
             if (memberCount >= 2 && !clusterReady) {
                 clusterReady = true;
-                System.out.println("🎉 CLUSTER READY! " + memberCount + " nodes connected");
-                System.out.println("✓ Infrastructure node operational");
-                System.out.println("🔍 Subscribing to actor registrations...");
+                System.out.println("\n🎉 CLUSTER READY! " + memberCount + " nodes connected");
+                logger.info("Infrastructure node operational");
+                logger.info("Subscribing to actor registrations...");
 
                 ActorRef<Receptionist.Listing> adapter = getContext()
                         .messageAdapter(Receptionist.Listing.class, ActorsRegistered::new);
@@ -243,10 +214,10 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
             }
         } else if (msg.event instanceof ClusterEvent.MemberJoined) {
             ClusterEvent.MemberJoined joined = (ClusterEvent.MemberJoined) msg.event;
-            System.out.println("👋 Member JOINED: " + joined.member().uniqueAddress());
+            logger.info("Member JOINED: {}", joined.member().uniqueAddress());
         } else if (msg.event instanceof ClusterEvent.MemberRemoved) {
             ClusterEvent.MemberRemoved removed = (ClusterEvent.MemberRemoved) msg.event;
-            System.out.println("⚠️ Member REMOVED: " + removed.member().uniqueAddress());
+            logger.warn("Member REMOVED: {}", removed.member().uniqueAddress());
             clusterReady = false;
         }
 
@@ -256,46 +227,40 @@ public class ClusterSupervisorActor extends AbstractBehavior<ClusterSupervisorAc
     private Behavior<Command> onReachabilityChange(ClusterReachabilityChange msg) {
         if (msg.event instanceof ClusterEvent.UnreachableMember) {
             ClusterEvent.UnreachableMember unreachable = (ClusterEvent.UnreachableMember) msg.event;
-            System.out.println("❌ Node UNREACHABLE: " + unreachable.member().uniqueAddress());
+            logger.warn("Node UNREACHABLE: {}", unreachable.member().uniqueAddress());
         } else if (msg.event instanceof ClusterEvent.ReachableMember) {
             ClusterEvent.ReachableMember reachable = (ClusterEvent.ReachableMember) msg.event;
-            System.out.println("✅ Node REACHABLE: " + reachable.member().uniqueAddress());
+            logger.info("Node REACHABLE: {}", reachable.member().uniqueAddress());
         }
         return this;
     }
 
     private Behavior<Command> onCreateSession(CreateSession cmd) {
         if (!clusterReady) {
-            System.out.println("⏳ Cluster not ready yet");
+            logger.warn("Cluster not ready yet for session creation");
             cmd.replyTo.tell(new SessionCreatedMessage("pending", cmd.userId));
             return this;
         }
 
-        System.out.println("➡️  Routing session creation to SessionManager: " + cmd.userId);
+        logger.info("Routing session creation to SessionManager for user: {}", cmd.userId);
         sessionManager.tell(new SessionManagerActor.CreateSession(cmd.userId, cmd.replyTo));
         return this;
     }
 
-    // THIS IS THE CORRECTED METHOD!
     private Behavior<Command> onRouteQuery(RouteQuery cmd) {
         if (!clusterReady) {
-            System.out.println("⏳ Cluster not ready");
+            logger.warn("Cluster not ready yet for query routing");
             cmd.replyTo.tell("System initializing, please wait...");
             return this;
         }
 
-        System.out.println("➡️  Routing query to SessionManager");
-        System.out.println("   Session: " + cmd.sessionId);
-        System.out.println("   Query: " + cmd.query);
+        logger.info("Routing query to SessionManager for session: {}", cmd.sessionId);
 
-        // CORRECTED: Pass 3 separate parameters instead of UserQueryMessage
         sessionManager.tell(new SessionManagerActor.RouteToSession(
                 cmd.sessionId,
                 cmd.query,
                 cmd.replyTo
         ));
-
-        System.out.println("✅ Routed to SessionManager");
 
         return this;
     }

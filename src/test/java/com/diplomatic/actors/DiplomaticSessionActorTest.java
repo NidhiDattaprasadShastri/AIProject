@@ -4,7 +4,6 @@ import akka.actor.testkit.typed.javadsl.TestProbe;
 import akka.actor.typed.ActorRef;
 import com.diplomatic.actors.infrastructure.ConversationHistoryActor;
 import com.diplomatic.actors.infrastructure.DiplomaticSessionActor;
-import com.diplomatic.messages.UserQueryMessage;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;

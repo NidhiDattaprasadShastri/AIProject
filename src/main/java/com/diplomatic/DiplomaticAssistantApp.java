@@ -1,7 +1,6 @@
 package com.diplomatic;
 
 import akka.actor.typed.ActorSystem;
-import com.diplomatic.actors.infrastructure.SupervisorActor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 

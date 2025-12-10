@@ -80,7 +80,6 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         this.activeSessions = new HashMap<>();
         this.historyActor = context.spawn(ConversationHistoryActor.create(), "conversation-history");
         logger.info("SessionManagerActor initialized");
-        System.out.println("✅ SessionManagerActor initialized");
     }
 
     public static Behavior<Command> create() {
@@ -109,17 +108,16 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         this.primitivesActor = cmd.primitivesActor;
         this.intelligenceActorsReady = true;
 
-        System.out.println("🔗 SessionManager received intelligence actors!");
-        System.out.println("   Classifier: " + classifierActor);
-        System.out.println("   Cultural: " + culturalActor);
-        System.out.println("   Primitives: " + primitivesActor);
-        System.out.println("📋 Active sessions count: " + activeSessions.size());
+        logger.info("Intelligence actors configured in SessionManager");
+        logger.info("Active sessions: {}", activeSessions.size());
 
+        // Configure existing sessions
         for (Map.Entry<String, ActorRef<DiplomaticSessionActor.Command>> entry : activeSessions.entrySet()) {
             entry.getValue().tell(new DiplomaticSessionActor.SetIntelligenceActors(
                     classifierActor, culturalActor, primitivesActor));
         }
-        System.out.println("✅ Intelligence actors set for " + activeSessions.size() + " existing sessions");
+
+        logger.info("Intelligence actors configured for {} existing sessions", activeSessions.size());
 
         return this;
     }
@@ -127,7 +125,6 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
     private Behavior<Command> onCreateSession(CreateSession cmd) {
         String sessionId = UUID.randomUUID().toString();
         logger.info("Creating new session {} for user {}", sessionId, cmd.userId);
-        System.out.println("🆕 Creating session: " + sessionId);
 
         ActorRef<DiplomaticSessionActor.Command> sessionActor = getContext().spawn(
                 DiplomaticSessionActor.create(sessionId, cmd.userId, historyActor),
@@ -135,12 +132,10 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         );
 
         activeSessions.put(sessionId, sessionActor);
-        System.out.println("✅ Session actor spawned and stored");
 
         if (intelligenceActorsReady) {
             sessionActor.tell(new DiplomaticSessionActor.SetIntelligenceActors(
                     classifierActor, culturalActor, primitivesActor));
-            System.out.println("✅ Intelligence actors set for new session");
         }
 
         cmd.replyTo.tell(new SessionCreatedMessage(sessionId, cmd.userId));
@@ -148,27 +143,19 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
     }
 
     private Behavior<Command> onRouteToSession(RouteToSession cmd) {
-        System.out.println("📨 SessionManager.onRouteToSession");
-        System.out.println("   Session: " + cmd.sessionId);
-        System.out.println("   Query: " + cmd.query);
+        logger.info("Routing query to session: {}", cmd.sessionId);
 
         ActorRef<DiplomaticSessionActor.Command> sessionActor = activeSessions.get(cmd.sessionId);
 
         if (sessionActor == null) {
-            System.out.println("❌ Session not found!");
+            logger.warn("Session not found: {}", cmd.sessionId);
             cmd.replyTo.tell("Error: Session not found");
             return this;
         }
 
-        System.out.println("✅ Session found: " + sessionActor);
-
-        // First set the response handler
+        // Set response handler then send query
         sessionActor.tell(new DiplomaticSessionActor.SetResponseHandler(cmd.replyTo));
-        System.out.println("   ✓ Response handler set");
-
-        // Then send the query
         sessionActor.tell(new DiplomaticSessionActor.ProcessQuery(cmd.query));
-        System.out.println("   ✓ ProcessQuery sent");
 
         return this;
     }

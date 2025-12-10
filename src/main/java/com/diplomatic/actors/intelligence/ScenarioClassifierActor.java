@@ -19,26 +19,19 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
 
     private ScenarioClassifierActor(ActorContext<RouteToClassifierMessage> context) {
         super(context);
-        logger.info("ScenarioClassifierActor initialized");
-        System.out.println("✅ ScenarioClassifierActor ready on Node 2");
+        logger.info("ScenarioClassifierActor initialized on Node 2");
     }
 
     @Override
     public Receive<RouteToClassifierMessage> createReceive() {
         return newReceiveBuilder()
-                .onMessage(RouteToClassifierMessage.class, msg -> {
-                    System.out.println("\n🎯🎯🎯 CLASSIFIER RECEIVED MESSAGE ON NODE 2!");
-                    System.out.println("    SessionId: " + msg.getSessionId());
-                    System.out.println("    Query: " + msg.getQuery());
-                    return onClassify(msg);
-                })
+                .onMessage(RouteToClassifierMessage.class, this::onClassify)
                 .build();
     }
 
     private Behavior<RouteToClassifierMessage> onClassify(RouteToClassifierMessage msg) {
         String query = msg.getQuery().toLowerCase();
         logger.info("Classifying query for session {}: {}", msg.getSessionId(), query);
-        System.out.println("🔍 Classifying: " + query);
 
         String scenario;
         String targetActor;
@@ -50,26 +43,25 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
             scenario = "CULTURAL";
             targetActor = "CulturalContextActor";
             confidence = 0.85;
-            System.out.println("📋 Classified as CULTURAL - Country: " + detectedCountry);
+            logger.info("Classified as CULTURAL - Country: {}", detectedCountry);
         } else if (isDiplomaticPrimitiveQuery(query)) {
             scenario = "PRIMITIVE";
             targetActor = "DiplomaticPrimitivesActor";
             confidence = 0.90;
-            System.out.println("📋 Classified as PRIMITIVE - Primitive: " + detectedPrimitive);
+            logger.info("Classified as PRIMITIVE - Primitive: {}", detectedPrimitive);
         } else {
             scenario = "GENERAL";
             targetActor = "DiplomaticPrimitivesActor";
             confidence = 0.60;
-            System.out.println("📋 Classified as GENERAL - using PRIMITIVE");
+            logger.info("Classified as GENERAL");
         }
 
         ClassificationResultMessage result = new ClassificationResultMessage(
                 scenario, targetActor, confidence, detectedCountry, detectedPrimitive
         );
 
-        System.out.println("📤 Sending classification result back to Node 1");
         msg.getReplyTo().tell(result);
-        System.out.println("✅ Classification sent!\n");
+        logger.debug("Classification result sent");
 
         return this;
     }
@@ -107,7 +99,7 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
                 "japan", "japanese", "kuwait", "kuwaiti", "morocco", "moroccan",
                 "canada", "canadian", "turkey", "turkish", "mauritania", "mauritanian",
                 "china", "chinese", "india", "indian", "germany", "german",
-                "france", "french", "arab", "arabic", "iraq", "iraqi"
+                "france", "french", "arab", "arabic", "iraq", "iraqi", "eritrea", "eritrean"
         };
         for (String country : countries) {
             if (query.contains(country)) {

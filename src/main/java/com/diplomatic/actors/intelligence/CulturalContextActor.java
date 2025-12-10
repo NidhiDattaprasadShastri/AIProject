@@ -26,61 +26,54 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
                                  ActorRef<LLMRequestMessage> llmActor) {
         super(context);
         this.llmActor = llmActor;
-        logger.info("CulturalContextActor initialized");
-        System.out.println("✅ CulturalContextActor ready on Node 2");
+        logger.info("CulturalContextActor initialized on Node 2");
     }
 
     @Override
     public Receive<CulturalAnalysisRequestMessage> createReceive() {
         return newReceiveBuilder()
-                .onMessage(CulturalAnalysisRequestMessage.class, msg -> {
-                    System.out.println("\n🌍🌍🌍 CULTURAL ACTOR RECEIVED MESSAGE ON NODE 2!");
-                    System.out.println("    Country: " + msg.getCountry());
-                    System.out.println("    Query: " + msg.getQuery());
-                    return onAnalyzeRequest(msg);
-                })
+                .onMessage(CulturalAnalysisRequestMessage.class, this::onAnalyzeRequest)
                 .build();
     }
 
     private Behavior<CulturalAnalysisRequestMessage> onAnalyzeRequest(CulturalAnalysisRequestMessage msg) {
         logger.info("Processing cultural analysis for country: {}", msg.getCountry());
-        System.out.println("🔍 Building cultural prompt for " + msg.getCountry());
 
         String culturalPrompt = buildCulturalPrompt(msg.getQuery(), msg.getCountry());
-        System.out.println("✅ Prompt built, length: " + culturalPrompt.length());
 
         Map<String, Object> context = new HashMap<>();
         context.put("country", msg.getCountry());
         context.put("scenario_type", "CULTURAL");
         context.put("query", msg.getQuery());
 
+        // Store the original replyTo
+        final ActorRef<CulturalAnalysisResponseMessage> originalReplyTo = msg.getReplyTo();
+
         ActorRef<LLMResponseMessage> adapter = getContext().messageAdapter(
                 LLMResponseMessage.class,
                 llmResponse -> {
-                    System.out.println("📨 Cultural actor received LLM response");
                     String analysis;
                     if (llmResponse.isSuccess()) {
                         analysis = llmResponse.getResponse();
-                        System.out.println("✅ Success response, length: " + analysis.length());
                     } else {
                         analysis = "I apologize, but I'm having trouble accessing cultural information.";
-                        System.out.println("❌ Error response");
                     }
 
                     CulturalAnalysisResponseMessage response = new CulturalAnalysisResponseMessage(
                             analysis, context
                     );
 
-                    System.out.println("📤 Sending cultural response back to Node 1");
-                    msg.getReplyTo().tell(response);
+                    originalReplyTo.tell(response);
+
+                    // Return the ORIGINAL message to avoid creating new messages
                     return msg;
                 }
         );
 
-        System.out.println("📤 Sending request to LLM Processor...");
         LLMRequestMessage llmRequest = new LLMRequestMessage(culturalPrompt, context, adapter);
         llmActor.tell(llmRequest);
-        System.out.println("✅ Request sent to LLM actor");
+
+        logger.info("Cultural analysis request sent to LLM processor");
 
         return this;
     }

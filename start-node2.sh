@@ -15,17 +15,16 @@ echo ""
 # Check if API key is set (REQUIRED for Node 2)
 if [ -z "$LLM_API_KEY" ]; then
     echo "❌ ERROR: LLM_API_KEY environment variable not set"
-    echo "Node 2 requires an API key for LLM integration"
+    echo "Node 2 requires an API key for Claude integration"
     echo ""
     echo "Set it with:"
     echo "  export LLM_API_KEY='your-anthropic-api-key'"
-    echo "  export LLM_PROVIDER='CLAUDE'  # or 'OPENAI'"
     echo ""
     exit 1
 fi
 
 echo "✓ LLM_API_KEY configured"
-echo "✓ Provider: ${LLM_PROVIDER:-CLAUDE}"
+echo "✓ Provider: CLAUDE"
 echo ""
 
 # Compile if needed

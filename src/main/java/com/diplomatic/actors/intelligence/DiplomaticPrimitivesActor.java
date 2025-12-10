@@ -26,7 +26,7 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
                                       ActorRef<LLMRequestMessage> llmActor) {
         super(context);
         this.llmActor = llmActor;
-        logger.info("DiplomaticPrimitivesActor initialized");
+        logger.info("DiplomaticPrimitivesActor initialized on Node 2");
     }
 
     @Override
@@ -38,7 +38,7 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
 
     private Behavior<DiplomaticPrimitiveRequestMessage> onProcessRequest(DiplomaticPrimitiveRequestMessage msg) {
         String primitive = msg.getPrimitive();
-        logger.info("Processing diplomatic primitive: {}, query: {}", primitive, msg.getQuery());
+        logger.info("Processing diplomatic primitive: {} for query: {}", primitive, msg.getQuery());
 
         String primitivePrompt = buildPrimitivePrompt(msg.getQuery(), primitive);
 
@@ -46,6 +46,9 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
         context.put("primitive", primitive);
         context.put("scenario_type", "DIPLOMATIC_PRIMITIVE");
         context.put("query", msg.getQuery());
+
+        // Store the original replyTo
+        final ActorRef<DiplomaticPrimitiveResponseMessage> originalReplyTo = msg.getReplyTo();
 
         ActorRef<LLMResponseMessage> adapter = getContext().messageAdapter(
                 LLMResponseMessage.class,
@@ -64,7 +67,9 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
                             result
                     );
 
-                    msg.getReplyTo().tell(response);
+                    originalReplyTo.tell(response);
+
+                    // Return the ORIGINAL message to avoid creating new messages
                     return msg;
                 }
         );
@@ -72,7 +77,7 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
         LLMRequestMessage llmRequest = new LLMRequestMessage(primitivePrompt, context, adapter);
         llmActor.tell(llmRequest);
 
-        logger.info("Sent primitive analysis request to LLM actor for primitive: {}", primitive);
+        logger.info("Primitive analysis request sent to LLM processor");
 
         return this;
     }

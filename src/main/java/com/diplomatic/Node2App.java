@@ -17,11 +17,6 @@ public class Node2App {
     public static void main(String[] args) {
         // Get API key
         String apiKey = System.getenv("LLM_API_KEY");
-        String apiProvider = System.getenv("LLM_PROVIDER");
-
-        if (apiProvider == null || apiProvider.isEmpty()) {
-            apiProvider = "CLAUDE";
-        }
 
         // Load configuration from file
         Config config = ConfigFactory.parseFile(
@@ -34,22 +29,19 @@ public class Node2App {
         System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
 
         if (apiKey != null) {
-            System.out.println("🤖 Using LLM Provider: " + apiProvider);
+            System.out.println("🤖 Using LLM Provider: CLAUDE");
             System.out.println("✓ API Key configured");
         } else {
-            System.out.println("⚠️  No API Key - running in MOCK mode");
+            System.out.println("⚠️  No API Key configured");
         }
 
         System.out.println("✓ Config loaded from: application-node2.conf");
         System.out.println("✓ Provider: " + config.getString("akka.actor.provider"));
         System.out.println("✓ Port: " + config.getInt("akka.remote.artery.canonical.port"));
 
-        final String finalApiKey = apiKey;
-        final String finalApiProvider = apiProvider;
-
-        // Create actor system
+        // Create actor system (apiProvider parameter is ignored now)
         ActorSystem<IntelligenceNodeSupervisor.Command> system = ActorSystem.create(
-                IntelligenceNodeSupervisor.create(finalApiKey, finalApiProvider),
+                IntelligenceNodeSupervisor.create(apiKey, "CLAUDE"),
                 "DiplomaticAssistantSystem",
                 config
         );
@@ -60,8 +52,6 @@ public class Node2App {
         System.out.println("📍 Address: " + cluster.selfMember().address());
         System.out.println("🎭 Roles: " + cluster.selfMember().roles());
         System.out.println("⏳ Waiting for cluster formation (need 2 nodes)...\n");
-
-        // DON'T explicitly join, let seed-nodes handle it
 
         // Initialize intelligence actors after a delay to ensure cluster is formed
         new Thread(() -> {
