@@ -1,13 +1,22 @@
 package com.diplomatic.messages;
 
-public final class ClassificationResultMessage {
-    private final String scenario; // "CULTURAL" or "PRIMITIVE"
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public final class ClassificationResultMessage implements CborSerializable {
+    private final String scenario;
     private final String targetActor;
     private final double confidence;
     private final String detectedCountry;
     private final String detectedPrimitive;
 
-    public ClassificationResultMessage(String scenario, String targetActor, double confidence, String detectedCountry, String detectedPrimitive) {
+    @JsonCreator
+    public ClassificationResultMessage(
+            @JsonProperty("scenario") String scenario,
+            @JsonProperty("targetActor") String targetActor,
+            @JsonProperty("confidence") double confidence,
+            @JsonProperty("detectedCountry") String detectedCountry,
+            @JsonProperty("detectedPrimitive") String detectedPrimitive) {
         this.scenario = scenario;
         this.targetActor = targetActor;
         this.confidence = confidence;

@@ -1,13 +1,20 @@
 package com.diplomatic.messages;
 
-public final class LLMResponseMessage {
+import com.fasterxml.jackson.annotation.JsonCreator;
+import com.fasterxml.jackson.annotation.JsonProperty;
+
+public final class LLMResponseMessage implements CborSerializable {
     private final String response;
     private final boolean success;
 
-    public LLMResponseMessage(String response, boolean success) {
+    @JsonCreator
+    public LLMResponseMessage(
+            @JsonProperty("response") String response,
+            @JsonProperty("success") boolean success) {
         this.response = response;
         this.success = success;
     }
+
     public String getResponse() { return response; }
     public boolean isSuccess() { return success; }
 }

@@ -60,10 +60,10 @@ public class IntelligenceNodeSupervisor extends AbstractBehavior<IntelligenceNod
         this.apiKey = apiKey;
         this.apiProvider = apiProvider;
 
-        logger.info("╔════════════════════════════════════════════════════════════╗");
-        logger.info("║  NODE 2: Intelligence Supervisor Created                  ║");
-        logger.info("║  Roles: {}", cluster.selfMember().roles());
-        logger.info("╚════════════════════════════════════════════════════════════╝");
+        System.out.println("╔════════════════════════════════════════════════════════════╗");
+        System.out.println("║  NODE 2: Intelligence Supervisor Created                  ║");
+        System.out.println("║  Roles: " + cluster.selfMember().roles() + "                              ║");
+        System.out.println("╚════════════════════════════════════════════════════════════╝");
     }
 
     @Override
@@ -74,7 +74,7 @@ public class IntelligenceNodeSupervisor extends AbstractBehavior<IntelligenceNod
     }
 
     private Behavior<Command> onInitialize(Initialize cmd) {
-        logger.info("🧠 Initializing intelligence actors on Node 2...");
+        System.out.println("🧠 Initializing intelligence actors on Node 2...");
 
         try {
             // 1. Spawn LLM Processor Actor
@@ -82,49 +82,49 @@ public class IntelligenceNodeSupervisor extends AbstractBehavior<IntelligenceNod
                     LLMProcessorActor.create(apiKey, apiProvider),
                     "llm-processor"
             );
-            logger.info("✓ LLMProcessorActor spawned");
+            System.out.println("✓ LLMProcessorActor spawned");
 
             // 2. Spawn Scenario Classifier Actor
             this.classifierActor = getContext().spawn(
                     ScenarioClassifierActor.create(),
                     "scenario-classifier"
             );
-            logger.info("✓ ScenarioClassifierActor spawned");
+            System.out.println("✓ ScenarioClassifierActor spawned");
 
             // Register classifier with receptionist for cluster-wide discovery
             getContext().getSystem().receptionist().tell(
                     Receptionist.register(CLASSIFIER_KEY, classifierActor)
             );
-            logger.info("📡 Classifier registered with receptionist");
+            System.out.println("📡 Classifier registered with receptionist");
 
             // 3. Spawn Cultural Context Actor
             this.culturalActor = getContext().spawn(
                     CulturalContextActor.create(llmActor),
                     "cultural-context"
             );
-            logger.info("✓ CulturalContextActor spawned");
+            System.out.println("✓ CulturalContextActor spawned");
 
             // Register cultural actor
             getContext().getSystem().receptionist().tell(
                     Receptionist.register(CULTURAL_KEY, culturalActor)
             );
-            logger.info("📡 Cultural actor registered with receptionist");
+            System.out.println("📡 Cultural actor registered with receptionist");
 
             // 4. Spawn Diplomatic Primitives Actor
             this.primitivesActor = getContext().spawn(
                     DiplomaticPrimitivesActor.create(llmActor),
                     "diplomatic-primitives"
             );
-            logger.info("✓ DiplomaticPrimitivesActor spawned");
+            System.out.println("✓ DiplomaticPrimitivesActor spawned");
 
             // Register primitives actor
             getContext().getSystem().receptionist().tell(
                     Receptionist.register(PRIMITIVES_KEY, primitivesActor)
             );
-            logger.info("📡 Primitives actor registered with receptionist");
+            System.out.println("📡 Primitives actor registered with receptionist");
 
-            logger.info("🎉 All intelligence actors initialized and registered!");
-            logger.info("✅ Node 2 ready to process queries");
+            System.out.println("🎉 All intelligence actors initialized and registered!");
+            System.out.println("✅ Node 2 ready to process queries");
 
         } catch (Exception e) {
             logger.error("❌ Failed to initialize intelligence actors", e);

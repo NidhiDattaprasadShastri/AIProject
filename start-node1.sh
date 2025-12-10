@@ -12,22 +12,19 @@ echo "║       Port: 2551                                              ║"
 echo "╚═══════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check if API key is set (optional for Node 1)
-if [ -z "$LLM_API_KEY" ]; then
-    echo "⚠️  Warning: LLM_API_KEY not set"
-    echo "Set it with: export LLM_API_KEY='your-key'"
-    echo ""
-fi
-
 # Compile if needed
 echo "📦 Compiling project..."
 mvn compile -q
 
 # Run Node 1
 echo "🚀 Starting Node 1..."
+echo ""
+echo "⚠️  NOTE: Node 1 will run continuously."
+echo "         Start Node 2 in another terminal, then use a third terminal for queries."
+echo ""
+
 mvn exec:java \
     -Dexec.mainClass="com.diplomatic.Node1App" \
-    -Dconfig.file=src/main/resources/application-node1.conf \
     -Dexec.cleanupDaemonThreads=false
 
 echo ""

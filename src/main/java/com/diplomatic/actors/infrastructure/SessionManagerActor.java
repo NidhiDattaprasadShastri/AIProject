@@ -2,24 +2,14 @@ package com.diplomatic.actors.infrastructure;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.Behavior;
-import akka.actor.typed.javadsl.AbstractBehavior;
-import akka.actor.typed.javadsl.ActorContext;
-import akka.actor.typed.javadsl.Behaviors;
-import akka.actor.typed.javadsl.Receive;
+import akka.actor.typed.javadsl.*;
 import com.diplomatic.messages.*;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
-import java.util.HashMap;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 
 public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Command> {
 
-    private final Logger logger = LoggerFactory.getLogger(SessionManagerActor.class);
     private final Map<String, ActorRef<DiplomaticSessionActor.Command>> activeSessions;
     private final ActorRef<ConversationHistoryActor.Command> historyActor;
-
     private ActorRef<RouteToClassifierMessage> classifierActor;
     private ActorRef<CulturalAnalysisRequestMessage> culturalActor;
     private ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor;
@@ -27,13 +17,7 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
 
     public interface Command {}
 
-    // ✅ ADDED: Shutdown message for cluster singleton
-    public static final class Shutdown implements Command {
-        public static final Shutdown INSTANCE = new Shutdown();
-        private Shutdown() {}
-    }
-
-    public static final class CreateSession implements Command {
+    public static class CreateSession implements Command {
         public final String userId;
         public final ActorRef<SessionCreatedMessage> replyTo;
         public CreateSession(String userId, ActorRef<SessionCreatedMessage> replyTo) {
@@ -42,21 +26,18 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         }
     }
 
-    public static final class RouteToSession implements Command {
-        public final UserQueryMessage queryMessage;
-        public RouteToSession(UserQueryMessage queryMessage) {
-            this.queryMessage = queryMessage;
-        }
-    }
-
-    public static final class EndSession implements Command {
+    public static class RouteToSession implements Command {
         public final String sessionId;
-        public EndSession(String sessionId) {
+        public final String query;
+        public final ActorRef<String> replyTo;
+        public RouteToSession(String sessionId, String query, ActorRef<String> replyTo) {
             this.sessionId = sessionId;
+            this.query = query;
+            this.replyTo = replyTo;
         }
     }
 
-    public static final class SetIntelligenceActors implements Command {
+    public static class SetIntelligenceActors implements Command {
         public final ActorRef<RouteToClassifierMessage> classifierActor;
         public final ActorRef<CulturalAnalysisRequestMessage> culturalActor;
         public final ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor;
@@ -75,7 +56,7 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         super(context);
         this.activeSessions = new HashMap<>();
         this.historyActor = context.spawn(ConversationHistoryActor.create(), "conversation-history");
-        logger.info("SessionManagerActor initialized");
+        System.out.println("✅ SessionManagerActor initialized");
     }
 
     public static Behavior<Command> create() {
@@ -85,18 +66,10 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
     @Override
     public Receive<Command> createReceive() {
         return newReceiveBuilder()
-                .onMessage(Shutdown.class, this::onShutdown)  // ✅ ADDED: Handle shutdown
                 .onMessage(SetIntelligenceActors.class, this::onSetIntelligenceActors)
                 .onMessage(CreateSession.class, this::onCreateSession)
                 .onMessage(RouteToSession.class, this::onRouteToSession)
-                .onMessage(EndSession.class, this::onEndSession)
                 .build();
-    }
-
-    // ✅ ADDED: Shutdown handler
-    private Behavior<Command> onShutdown(Shutdown cmd) {
-        logger.info("SessionManagerActor shutting down gracefully");
-        return Behaviors.stopped();
     }
 
     private Behavior<Command> onSetIntelligenceActors(SetIntelligenceActors cmd) {
@@ -105,68 +78,54 @@ public class SessionManagerActor extends AbstractBehavior<SessionManagerActor.Co
         this.primitivesActor = cmd.primitivesActor;
         this.intelligenceActorsReady = true;
 
-        logger.info("Intelligence actors configured in SessionManager");
+        System.out.println("✅ SessionManager received intelligence actors!");
 
-        // Update all existing sessions with intelligence actors
         for (ActorRef<DiplomaticSessionActor.Command> sessionActor : activeSessions.values()) {
             sessionActor.tell(new DiplomaticSessionActor.SetIntelligenceActors(
-                    classifierActor, culturalActor, primitivesActor
-            ));
+                    classifierActor, culturalActor, primitivesActor));
         }
-        logger.info("Intelligence actors set for {} existing sessions", activeSessions.size());
-
         return this;
     }
 
     private Behavior<Command> onCreateSession(CreateSession cmd) {
         String sessionId = UUID.randomUUID().toString();
-        logger.info("Creating new session {} for user {}", sessionId, cmd.userId);
+        System.out.println("🆕 Creating session: " + sessionId);
 
-        // Create session with simplified parameters
         ActorRef<DiplomaticSessionActor.Command> sessionActor = getContext().spawn(
                 DiplomaticSessionActor.create(sessionId, cmd.userId, historyActor),
                 "session-" + sessionId
         );
 
-        // If intelligence actors are ready, configure them immediately
+        activeSessions.put(sessionId, sessionActor);
+
         if (intelligenceActorsReady) {
             sessionActor.tell(new DiplomaticSessionActor.SetIntelligenceActors(
-                    classifierActor, culturalActor, primitivesActor
-            ));
-            logger.info("Intelligence actors set for new session {}", sessionId);
-        } else {
-            logger.warn("Intelligence actors not yet ready for session {}, will be set when available", sessionId);
+                    classifierActor, culturalActor, primitivesActor));
         }
 
-        activeSessions.put(sessionId, sessionActor);
         cmd.replyTo.tell(new SessionCreatedMessage(sessionId, cmd.userId));
-        logger.info("Session {} created successfully. Active sessions: {}", sessionId, activeSessions.size());
-
+        System.out.println("✅ Session created: " + sessionId);
         return this;
     }
 
     private Behavior<Command> onRouteToSession(RouteToSession cmd) {
-        String sessionId = cmd.queryMessage.getSessionId();
-        ActorRef<DiplomaticSessionActor.Command> sessionActor = activeSessions.get(sessionId);
+        System.out.println("📨 Routing query to session: " + cmd.sessionId);
+
+        ActorRef<DiplomaticSessionActor.Command> sessionActor = activeSessions.get(cmd.sessionId);
 
         if (sessionActor == null) {
-            logger.warn("No active session found for: {}", sessionId);
-            cmd.queryMessage.getReplyTo().tell("Error: Session not found. Please start a new session.");
+            System.out.println("❌ Session not found!");
+            cmd.replyTo.tell("Error: Session not found");
             return this;
         }
 
-        logger.info("Routing query to session: {}", sessionId);
-        sessionActor.tell(new DiplomaticSessionActor.ProcessQuery(cmd.queryMessage));
-        return this;
-    }
+        // First, set the response handler
+        sessionActor.tell(new DiplomaticSessionActor.SetResponseHandler(cmd.replyTo));
 
-    private Behavior<Command> onEndSession(EndSession cmd) {
-        logger.info("Ending session: {}", cmd.sessionId);
-        ActorRef<DiplomaticSessionActor.Command> sessionActor = activeSessions.remove(cmd.sessionId);
-        if (sessionActor != null) {
-            getContext().stop(sessionActor);
-            logger.info("Session {} ended. Active sessions: {}", cmd.sessionId, activeSessions.size());
-        }
+        // Then send the query
+        sessionActor.tell(new DiplomaticSessionActor.ProcessQuery(cmd.query));
+
+        System.out.println("✅ Query and response handler sent to DiplomaticSessionActor!");
         return this;
     }
 }
