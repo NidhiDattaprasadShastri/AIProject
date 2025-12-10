@@ -14,6 +14,11 @@ import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
 
+/**
+ * CORRECTED SupervisorActor - Updated to match new RouteQuery signature
+ * NOTE: This file is NOT used by Node1App (which uses ClusterSupervisorActor instead)
+ * But it's corrected here to prevent compilation errors
+ */
 public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
 
     private final Logger logger = LoggerFactory.getLogger(SupervisorActor.class);
@@ -35,10 +40,16 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
         }
     }
 
+    // CORRECTED: RouteQuery with separate fields
     public static final class RouteQuery implements Command {
-        public final UserQueryMessage queryMessage;
-        public RouteQuery(UserQueryMessage queryMessage) {
-            this.queryMessage = queryMessage;
+        public final String sessionId;
+        public final String query;
+        public final ActorRef<String> replyTo;
+
+        public RouteQuery(String sessionId, String query, ActorRef<String> replyTo) {
+            this.sessionId = sessionId;
+            this.query = query;
+            this.replyTo = replyTo;
         }
     }
 
@@ -97,7 +108,6 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
             ));
 
             Thread.sleep(500);
-
             logger.info("Intelligence actors initialization complete");
 
         } catch (Exception e) {
@@ -113,9 +123,17 @@ public class SupervisorActor extends AbstractBehavior<SupervisorActor.Command> {
         return this;
     }
 
+    // CORRECTED: onRouteQuery with new signature
     private Behavior<Command> onRouteQuery(RouteQuery cmd) {
-        logger.info("Routing query for session: {}", cmd.queryMessage.getSessionId());
-        sessionManager.tell(new SessionManagerActor.RouteToSession(cmd.queryMessage));
+        logger.info("Routing query for session: {}", cmd.sessionId);
+
+        // Pass 3 separate parameters to RouteToSession
+        sessionManager.tell(new SessionManagerActor.RouteToSession(
+                cmd.sessionId,
+                cmd.query,
+                cmd.replyTo
+        ));
+
         return this;
     }
 

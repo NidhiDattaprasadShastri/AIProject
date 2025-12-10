@@ -2,20 +2,24 @@ package com.diplomatic;
 
 import akka.actor.typed.ActorRef;
 import akka.actor.typed.ActorSystem;
-import akka.actor.typed.javadsl.AskPattern;
+import akka.actor.typed.Behavior;
+import akka.actor.typed.javadsl.Behaviors;
 import com.diplomatic.actors.infrastructure.SupervisorActor;
 import com.diplomatic.messages.SessionCreatedMessage;
-import com.diplomatic.messages.UserQueryMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.util.Scanner;
-import java.util.concurrent.CompletionStage;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
+/**
+ * CORRECTED Diplomatic Assistant CLI
+ * Works with the updated SupervisorActor and RouteQuery signature
+ */
 public class DiplomaticAssistantCLI {
+
     private static final Logger logger = LoggerFactory.getLogger(DiplomaticAssistantCLI.class);
-    private static final Duration TIMEOUT = Duration.ofSeconds(30);
     private final ActorSystem<SupervisorActor.Command> actorSystem;
     private String currentSessionId;
     private final Scanner scanner;
@@ -62,18 +66,35 @@ public class DiplomaticAssistantCLI {
         System.out.print("Enter your name or ID (press Enter for auto-generated): ");
         String input = scanner.nextLine().trim();
         final String userId = input.isEmpty() ? "diplomat-" + System.currentTimeMillis() : input;
+
         System.out.println("\n✓ Creating your diplomatic consultation session...\n");
+
         try {
-            CompletionStage<SessionCreatedMessage> result = AskPattern.ask(actorSystem,
-                    replyTo -> new SupervisorActor.CreateSession(userId, replyTo),
-                    TIMEOUT,
-                    actorSystem.scheduler()
+            CompletableFuture<String> sessionFuture = new CompletableFuture<>();
+
+            // Create response handler behavior
+            Behavior<SessionCreatedMessage> responseHandlerBehavior = Behaviors.receive(
+                    (context, msg) -> {
+                        System.out.println("✓ Session created successfully!");
+                        System.out.println("📋 Session ID: " + msg.getSessionId());
+                        System.out.println("👤 User: " + msg.getUserId());
+                        sessionFuture.complete(msg.getSessionId());
+                        return Behaviors.stopped();
+                    }
             );
-            SessionCreatedMessage response = result.toCompletableFuture().get();
-            currentSessionId = response.getSessionId();
-            System.out.println("✓ Session created successfully!");
-            System.out.println("📋 Session ID: " + currentSessionId);
-            System.out.println("👤 User: " + response.getUserId());
+
+            // Spawn response handler
+            ActorRef<SessionCreatedMessage> responseHandler =
+                    actorSystem.systemActorOf(
+                            responseHandlerBehavior,
+                            "session-response-" + System.currentTimeMillis(),
+                            akka.actor.typed.Props.empty()
+                    );
+
+            actorSystem.tell(new SupervisorActor.CreateSession(userId, responseHandler));
+
+            currentSessionId = sessionFuture.get(10, TimeUnit.SECONDS);
+
             System.out.println("\nYou can now ask diplomatic questions about any country or culture.\n");
             System.out.println("────────────────────────────────────────────────────────────────\n");
             return true;
@@ -87,40 +108,61 @@ public class DiplomaticAssistantCLI {
 
     private void conversationLoop() {
         System.out.println("Start your consultation (type 'exit' to quit, 'help' for examples):\n");
+
         while (true) {
             System.out.print("You: ");
             String input = scanner.nextLine().trim();
+
             if (input.isEmpty()) {
                 continue;
             }
+
             if (input.equalsIgnoreCase("exit") || input.equalsIgnoreCase("quit")) {
                 System.out.println("\n✓ Thank you for using the Diplomatic Assistant. Goodbye!\n");
                 break;
             }
+
             if (input.equalsIgnoreCase("help")) {
                 printHelpExamples();
                 continue;
             }
+
             processQuery(input);
         }
     }
 
     private void processQuery(String query) {
         try {
-            System.out.println("\n🔄 Analyzing your diplomatic query...\n");
-            CompletionStage<String> result = AskPattern.ask(actorSystem,
-                    (ActorRef<String> replyTo) -> {
-                        UserQueryMessage queryMsg = new UserQueryMessage(
-                                currentSessionId,
-                                query,
-                                replyTo
-                        );
-                        return new SupervisorActor.RouteQuery(queryMsg);
-                    },
-                    TIMEOUT,
-                    actorSystem.scheduler()
+            System.out.println("\n📄 Analyzing your diplomatic query...\n");
+
+            CompletableFuture<String> responseFuture = new CompletableFuture<>();
+
+            // Create response handler behavior
+            Behavior<String> responseHandlerBehavior = Behaviors.receive(
+                    (context, msg) -> {
+                        System.out.println("✅ Response received!");
+                        responseFuture.complete(msg);
+                        return Behaviors.stopped();
+                    }
             );
-            String response = result.toCompletableFuture().get();
+
+            // Spawn response handler
+            ActorRef<String> responseHandler =
+                    actorSystem.systemActorOf(
+                            responseHandlerBehavior,
+                            "query-response-" + System.currentTimeMillis(),
+                            akka.actor.typed.Props.empty()
+                    );
+
+            // CORRECTED: Use new RouteQuery with 3 separate parameters
+            actorSystem.tell(new SupervisorActor.RouteQuery(
+                    currentSessionId,
+                    query,
+                    responseHandler
+            ));
+
+            String response = responseFuture.get(30, TimeUnit.SECONDS);
+
             System.out.println("🤖 Assistant:\n");
             System.out.println(formatResponse(response));
             System.out.println("\n────────────────────────────────────────────────────────────────\n");
@@ -137,9 +179,9 @@ public class DiplomaticAssistantCLI {
     }
 
     private void printHelpExamples() {
-        System.out.println("\n═══════════════════════════════════════════════════════════════");
-        System.out.println("                        EXAMPLE QUERIES");
-        System.out.println("═══════════════════════════════════════════════════════════════\n");
+        System.out.println("\n╔═══════════════════════════════════════════════════════════════╗");
+        System.out.println("║                        EXAMPLE QUERIES                        ║");
+        System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
 
         System.out.println("📚 CULTURAL QUESTIONS:");
         System.out.println("  • How should I greet a Japanese diplomat?");
@@ -184,7 +226,7 @@ public class DiplomaticAssistantCLI {
         System.out.println("  • Ask about specific primitives for structured guidance");
         System.out.println("  • Use cultural keywords for cultural analysis\n");
 
-        System.out.println("════════════════════════════════════════════════════════════════\n");
+        System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
     }
 
     private void shutdown() {
