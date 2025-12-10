@@ -27,20 +27,27 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
         super(context);
         this.llmActor = llmActor;
         logger.info("CulturalContextActor initialized");
+        System.out.println("✅ CulturalContextActor ready on Node 2");
     }
 
     @Override
     public Receive<CulturalAnalysisRequestMessage> createReceive() {
         return newReceiveBuilder()
-                .onMessage(CulturalAnalysisRequestMessage.class, this::onAnalyzeRequest)
+                .onMessage(CulturalAnalysisRequestMessage.class, msg -> {
+                    System.out.println("\n🌍🌍🌍 CULTURAL ACTOR RECEIVED MESSAGE ON NODE 2!");
+                    System.out.println("    Country: " + msg.getCountry());
+                    System.out.println("    Query: " + msg.getQuery());
+                    return onAnalyzeRequest(msg);
+                })
                 .build();
     }
 
     private Behavior<CulturalAnalysisRequestMessage> onAnalyzeRequest(CulturalAnalysisRequestMessage msg) {
-        logger.info("Processing cultural analysis for country: {}, query: {}",
-                msg.getCountry(), msg.getQuery());
+        logger.info("Processing cultural analysis for country: {}", msg.getCountry());
+        System.out.println("🔍 Building cultural prompt for " + msg.getCountry());
 
         String culturalPrompt = buildCulturalPrompt(msg.getQuery(), msg.getCountry());
+        System.out.println("✅ Prompt built, length: " + culturalPrompt.length());
 
         Map<String, Object> context = new HashMap<>();
         context.put("country", msg.getCountry());
@@ -50,36 +57,36 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
         ActorRef<LLMResponseMessage> adapter = getContext().messageAdapter(
                 LLMResponseMessage.class,
                 llmResponse -> {
+                    System.out.println("📨 Cultural actor received LLM response");
                     String analysis;
                     if (llmResponse.isSuccess()) {
                         analysis = llmResponse.getResponse();
+                        System.out.println("✅ Success response, length: " + analysis.length());
                     } else {
-                        analysis = "I apologize, but I'm having trouble accessing cultural information at the moment. " +
-                                "Please try again or consult with a cultural expert for guidance on " +
-                                msg.getCountry() + ".";
+                        analysis = "I apologize, but I'm having trouble accessing cultural information.";
+                        System.out.println("❌ Error response");
                     }
 
                     CulturalAnalysisResponseMessage response = new CulturalAnalysisResponseMessage(
-                            analysis,
-                            context
+                            analysis, context
                     );
 
+                    System.out.println("📤 Sending cultural response back to Node 1");
                     msg.getReplyTo().tell(response);
                     return msg;
                 }
         );
 
+        System.out.println("📤 Sending request to LLM Processor...");
         LLMRequestMessage llmRequest = new LLMRequestMessage(culturalPrompt, context, adapter);
         llmActor.tell(llmRequest);
-
-        logger.info("Sent cultural analysis request to LLM actor");
+        System.out.println("✅ Request sent to LLM actor");
 
         return this;
     }
 
     private String buildCulturalPrompt(String query, String country) {
         StringBuilder prompt = new StringBuilder();
-
         prompt.append("You are a cross-cultural diplomatic advisor with expertise in international relations.\n\n");
         prompt.append("Context: Cultural guidance needed");
         if (!"General".equals(country)) {
@@ -89,11 +96,10 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
         prompt.append("User Query: ").append(query).append("\n\n");
         prompt.append("Please provide:\n");
         prompt.append("1. Cultural Context: Key cultural considerations\n");
-        prompt.append("2. Communication Approach: Appropriate style (direct/indirect, formal/informal)\n");
+        prompt.append("2. Communication Approach: Appropriate style\n");
         prompt.append("3. Potential Pitfalls: Cultural mistakes to avoid\n");
-        prompt.append("4. Practical Advice: Concrete, actionable recommendations\n\n");
+        prompt.append("4. Practical Advice: Concrete recommendations\n\n");
         prompt.append("Keep response concise (under 250 words) and practical.");
-
         return prompt.toString();
     }
 }

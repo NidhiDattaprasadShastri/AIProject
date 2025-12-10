@@ -7,19 +7,14 @@ import akka.actor.typed.javadsl.Behaviors;
 import akka.cluster.typed.Cluster;
 import com.diplomatic.actors.infrastructure.ClusterSupervisorActor;
 import com.diplomatic.messages.SessionCreatedMessage;
-import com.diplomatic.messages.UserQueryMessage;
 import com.typesafe.config.Config;
 import com.typesafe.config.ConfigFactory;
 
 import java.io.File;
-import java.time.Duration;
 import java.util.Scanner;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.TimeUnit;
 
-/**
- * Node 1 - FIXED VERSION - Uses response handler instead of ask pattern!
- */
 public class Node1App {
 
     private static ActorRef<ClusterSupervisorActor.Command> supervisorRef;
@@ -70,7 +65,7 @@ public class Node1App {
                 System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
                 startInteractiveCLI();
             } catch (Exception e) {
-                System.err.println("Error in CLI thread: " + e.getMessage());
+                System.err.println("Error: " + e.getMessage());
             }
         }).start();
 
@@ -110,19 +105,17 @@ public class Node1App {
 
     private static String createSession(String userName) {
         try {
-            // FIXED: Use CompletableFuture with tell pattern
             CompletableFuture<String> sessionFuture = new CompletableFuture<>();
 
-            // Create response handler behavior
             Behavior<SessionCreatedMessage> responseHandlerBehavior = Behaviors.receive(
                     (context, msg) -> {
-                        System.out.println("✅ Session response received!");
+                        System.out.println("✅ Session created: " + msg.getSessionId());
+                        System.out.println("👤 User: " + msg.getUserId());
                         sessionFuture.complete(msg.getSessionId());
                         return Behaviors.stopped();
                     }
             );
 
-            // Spawn the response handler
             ActorRef<SessionCreatedMessage> responseHandler =
                     system.systemActorOf(responseHandlerBehavior,
                             "session-response-" + System.currentTimeMillis(),
@@ -130,16 +123,10 @@ public class Node1App {
 
             supervisorRef.tell(new ClusterSupervisorActor.CreateSession(userName, responseHandler));
 
-            String sessionId = sessionFuture.get(10, TimeUnit.SECONDS);
-
-            System.out.println("✅ Session created: " + sessionId);
-            System.out.println("👤 User: " + userName);
-
-            return sessionId;
+            return sessionFuture.get(10, TimeUnit.SECONDS);
 
         } catch (Exception e) {
             System.err.println("❌ Failed to create session: " + e.getMessage());
-            e.printStackTrace();
             return null;
         }
     }
@@ -153,7 +140,6 @@ public class Node1App {
 
             if (input.equalsIgnoreCase("exit") || input.equalsIgnoreCase("quit")) {
                 System.out.println("\n✅ Thank you for using the Diplomatic Assistant!\n");
-                System.out.println("💡 Press Ctrl+C to stop Node 1 and Node 2\n");
                 break;
             }
 
@@ -167,42 +153,37 @@ public class Node1App {
     }
 
     private static void processQuery(String sessionId, String query) {
-        System.out.println("\n📤 Sending query through cluster...");
-        System.out.println("   Node 1 → Node 2 → Claude API\n");
+        System.out.println("\n📤 Sending query through cluster...\n");
 
         try {
-            // FIXED: Use CompletableFuture with tell pattern
             CompletableFuture<String> responseFuture = new CompletableFuture<>();
 
-            // Create response handler behavior
             Behavior<String> responseHandlerBehavior = Behaviors.receive(
                     (context, msg) -> {
-                        System.out.println("✅ Query response received!");
+                        System.out.println("✅ Response received from cluster!");
                         responseFuture.complete(msg);
                         return Behaviors.stopped();
                     }
             );
 
-            // Spawn the response handler
             ActorRef<String> responseHandler =
                     system.systemActorOf(responseHandlerBehavior,
                             "query-response-" + System.currentTimeMillis(),
                             akka.actor.typed.Props.empty());
 
-            UserQueryMessage queryMsg = new UserQueryMessage(sessionId, query, responseHandler);
-            supervisorRef.tell(new ClusterSupervisorActor.RouteQuery(queryMsg));
+            supervisorRef.tell(new ClusterSupervisorActor.RouteQuery(sessionId, query, responseHandler));
 
             String response = responseFuture.get(30, TimeUnit.SECONDS);
 
-            System.out.println("╔═══════════════════════════════════════════════════════════════╗");
+            System.out.println("\n╔═══════════════════════════════════════════════════════════════╗");
             System.out.println("║  DIPLOMATIC ASSISTANT RESPONSE                                ║");
             System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
             System.out.println(response);
             System.out.println("\n" + "─".repeat(63) + "\n");
 
         } catch (Exception e) {
-            System.err.println("❌ Error processing query: " + e.getMessage());
-            System.err.println("The intelligence actors might not be ready. Please try again.\n");
+            System.err.println("❌ Error: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
@@ -213,12 +194,9 @@ public class Node1App {
         System.out.println("🌍 Cultural Questions:");
         System.out.println("  • How should I greet Japanese diplomats?");
         System.out.println("  • What are Moroccan business etiquette norms?");
-        System.out.println("  • Cultural considerations for Kuwait?");
-        System.out.println("  • Japanese business culture and hierarchy\n");
-        System.out.println("🤝 Diplomatic Primitives (IDEA Framework):");
+        System.out.println("  • Cultural considerations for Kuwait?\n");
+        System.out.println("🤝 Diplomatic Primitives:");
         System.out.println("  • How to propose a trade deal with Canada?");
-        System.out.println("  • Help me clarify terms with Turkish officials");
-        System.out.println("  • Setting deadlines in Japanese negotiations");
-        System.out.println("  • When to escalate in Mauritanian talks?\n");
+        System.out.println("  • Help me clarify terms with Turkish officials\n");
     }
 }

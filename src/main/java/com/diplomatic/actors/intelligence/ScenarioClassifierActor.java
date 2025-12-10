@@ -9,10 +9,6 @@ import com.diplomatic.messages.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-/**
- * Scenario Classifier Actor - Part B
- * Classifies queries as CULTURAL or PRIMITIVE scenarios
- */
 public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierMessage> {
 
     private final Logger logger = LoggerFactory.getLogger(ScenarioClassifierActor.class);
@@ -24,18 +20,25 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
     private ScenarioClassifierActor(ActorContext<RouteToClassifierMessage> context) {
         super(context);
         logger.info("ScenarioClassifierActor initialized");
+        System.out.println("✅ ScenarioClassifierActor ready on Node 2");
     }
 
     @Override
     public Receive<RouteToClassifierMessage> createReceive() {
         return newReceiveBuilder()
-                .onMessage(RouteToClassifierMessage.class, this::onClassify)
+                .onMessage(RouteToClassifierMessage.class, msg -> {
+                    System.out.println("\n🎯🎯🎯 CLASSIFIER RECEIVED MESSAGE ON NODE 2!");
+                    System.out.println("    SessionId: " + msg.getSessionId());
+                    System.out.println("    Query: " + msg.getQuery());
+                    return onClassify(msg);
+                })
                 .build();
     }
 
     private Behavior<RouteToClassifierMessage> onClassify(RouteToClassifierMessage msg) {
         String query = msg.getQuery().toLowerCase();
         logger.info("Classifying query for session {}: {}", msg.getSessionId(), query);
+        System.out.println("🔍 Classifying: " + query);
 
         String scenario;
         String targetActor;
@@ -43,62 +46,46 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
         String detectedPrimitive = detectPrimitive(query);
         double confidence;
 
-        // Determine scenario type
         if (isCulturalQuery(query)) {
             scenario = "CULTURAL";
             targetActor = "CulturalContextActor";
             confidence = 0.85;
-            logger.info("Classified as CULTURAL - Country: {}", detectedCountry);
+            System.out.println("📋 Classified as CULTURAL - Country: " + detectedCountry);
         } else if (isDiplomaticPrimitiveQuery(query)) {
             scenario = "PRIMITIVE";
             targetActor = "DiplomaticPrimitivesActor";
             confidence = 0.90;
-            logger.info("Classified as PRIMITIVE - Primitive: {}", detectedPrimitive);
+            System.out.println("📋 Classified as PRIMITIVE - Primitive: " + detectedPrimitive);
         } else {
             scenario = "GENERAL";
-            targetActor = "DiplomaticPrimitivesActor"; // Default to primitives for general diplomatic questions
+            targetActor = "DiplomaticPrimitivesActor";
             confidence = 0.60;
-            logger.info("Classified as GENERAL - defaulting to PRIMITIVE");
+            System.out.println("📋 Classified as GENERAL - using PRIMITIVE");
         }
 
-        // Create classification result matching your message structure
         ClassificationResultMessage result = new ClassificationResultMessage(
-                scenario,
-                targetActor,
-                confidence,
-                detectedCountry,
-                detectedPrimitive
+                scenario, targetActor, confidence, detectedCountry, detectedPrimitive
         );
 
-        // Send result back to session actor
+        System.out.println("📤 Sending classification result back to Node 1");
         msg.getReplyTo().tell(result);
-        logger.info("Classification complete: scenario={}, target={}, confidence={}",
-                scenario, targetActor, confidence);
+        System.out.println("✅ Classification sent!\n");
 
         return this;
     }
 
-    /**
-     * Detect if query is cultural in nature
-     */
     private boolean isCulturalQuery(String query) {
         String[] culturalKeywords = {
                 "culture", "cultural", "tradition", "custom", "etiquette", "greeting",
                 "gift", "hierarchy", "formality", "dress code", "body language",
                 "communication style", "direct", "indirect", "religious", "festival"
         };
-
         for (String keyword : culturalKeywords) {
-            if (query.contains(keyword)) {
-                return true;
-            }
+            if (query.contains(keyword)) return true;
         }
         return false;
     }
 
-    /**
-     * Detect if query involves diplomatic primitives
-     */
     private boolean isDiplomaticPrimitiveQuery(String query) {
         String[] primitiveKeywords = {
                 "propose", "proposal", "negotiate", "negotiation",
@@ -109,26 +96,19 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
                 "escalate", "escalation", "elevate",
                 "defer", "postpone", "delay"
         };
-
         for (String keyword : primitiveKeywords) {
-            if (query.contains(keyword)) {
-                return true;
-            }
+            if (query.contains(keyword)) return true;
         }
         return false;
     }
 
-    /**
-     * Detect country mentioned in query
-     */
     private String detectCountry(String query) {
         String[] countries = {
                 "japan", "japanese", "kuwait", "kuwaiti", "morocco", "moroccan",
                 "canada", "canadian", "turkey", "turkish", "mauritania", "mauritanian",
                 "china", "chinese", "india", "indian", "germany", "german",
-                "france", "french", "arab", "arabic"
+                "france", "french", "arab", "arabic", "iraq", "iraqi"
         };
-
         for (String country : countries) {
             if (query.contains(country)) {
                 return capitalize(country);
@@ -137,9 +117,6 @@ public class ScenarioClassifierActor extends AbstractBehavior<RouteToClassifierM
         return "General";
     }
 
-    /**
-     * Detect IDEA Framework primitive in query
-     */
     private String detectPrimitive(String query) {
         if (query.contains("propose") || query.contains("proposal")) return "PROPOSE";
         if (query.contains("clarify") || query.contains("clarification")) return "CLARIFY";

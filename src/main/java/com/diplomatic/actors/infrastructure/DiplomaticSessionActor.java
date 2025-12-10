@@ -13,7 +13,6 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
 
     public interface Command {}
 
-    // CRITICAL FIX: ProcessQuery NO LONGER contains ActorRef!
     public static class ProcessQuery implements Command {
         public final String query;
         public ProcessQuery(String query) {
@@ -80,7 +79,7 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
     private ActorRef<RouteToClassifierMessage> classifierActor;
     private ActorRef<CulturalAnalysisRequestMessage> culturalActor;
     private ActorRef<DiplomaticPrimitiveRequestMessage> primitivesActor;
-    private ActorRef<String> currentReplyTo; // Store reply handler here!
+    private ActorRef<String> currentReplyTo;
 
     public static Behavior<Command> create(
             String sessionId,
@@ -128,7 +127,7 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
 
     private Behavior<Command> onSetResponseHandler(SetResponseHandler cmd) {
         this.currentReplyTo = cmd.replyTo;
-        System.out.println("✅ Response handler set for session: " + sessionId);
+        System.out.println("✅ Response handler set");
         return this;
     }
 
@@ -144,21 +143,19 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
         }
 
         if (currentReplyTo == null) {
-            System.out.println("❌ No reply handler set!");
+            System.out.println("❌ No reply handler!");
             return this;
         }
 
         System.out.println("✅ Sending to classifier on Node 2");
 
-        final String originalQuery = cmd.query;
-
         ActorRef<ClassificationResultMessage> adapter = getContext().messageAdapter(
                 ClassificationResultMessage.class,
-                result -> new HandleClassification(result, originalQuery)
+                result -> new HandleClassification(result, cmd.query)
         );
 
-        classifierActor.tell(new RouteToClassifierMessage(sessionId, originalQuery, adapter));
-        System.out.println("➡️  TELL: Sent to classifier actor on Node 2");
+        classifierActor.tell(new RouteToClassifierMessage(sessionId, cmd.query, adapter));
+        System.out.println("➡️  TELL: Sent to classifier on Node 2");
 
         return this;
     }
@@ -172,7 +169,8 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
                     response -> new HandleCulturalResponse(response, cmd.originalQuery)
             );
 
-            culturalActor.tell(new CulturalAnalysisRequest(cmd.originalQuery, cmd.result.getDetectedCountry(), adapter));
+            culturalActor.tell(new CulturalAnalysisRequest(
+                    cmd.originalQuery, cmd.result.getDetectedCountry(), adapter));
             System.out.println("➡️  FORWARD: To CulturalContextActor");
 
         } else {
@@ -190,19 +188,25 @@ public class DiplomaticSessionActor extends AbstractBehavior<DiplomaticSessionAc
     }
 
     private Behavior<Command> onHandleCulturalResponse(HandleCulturalResponse cmd) {
-        System.out.println("📩 Cultural response received!");
+        System.out.println("📩 Cultural response from Node 2!");
         currentReplyTo.tell(cmd.response.getAnalysis());
+
         historyManager.tell(new ConversationHistoryActor.SaveConversation(
                 new SaveConversationMessage(sessionId, cmd.originalQuery, cmd.response.getAnalysis())));
+        System.out.println("➡️  TELL: Saved to history");
+
         return this;
     }
 
     private Behavior<Command> onHandleDiplomaticResponse(HandleDiplomaticResponse cmd) {
-        System.out.println("📩 Diplomatic response received!");
+        System.out.println("📩 Diplomatic response from Node 2!");
         String formatted = cmd.response.getResult() + "\n\n[Primitive: " + cmd.response.getPrimitive() + "]";
         currentReplyTo.tell(formatted);
+
         historyManager.tell(new ConversationHistoryActor.SaveConversation(
                 new SaveConversationMessage(sessionId, cmd.originalQuery, formatted)));
+        System.out.println("➡️  TELL: Saved to history");
+
         return this;
     }
 }
