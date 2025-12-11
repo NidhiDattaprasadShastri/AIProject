@@ -457,25 +457,25 @@ This project fulfills all academic requirements:
 **TELL (fire-and-forget):**
 ```java
 // DiplomaticSessionActor → ConversationHistoryActor
-historyManager.tell(new ConversationHistoryActor.SaveConversation(
-    new SaveConversationMessage(sessionId, query, response)));
+// historyManager.tell(new ConversationHistoryActor.SaveConversation(
+//    new SaveConversationMessage(sessionId, query, response)));
 ```
 
 **ASK (request-response via adapter):**
 ```java
 // DiplomaticSessionActor → ScenarioClassifierActor
-ActorRef<ClassificationResultMessage> adapter = getContext().messageAdapter(
-    ClassificationResultMessage.class,
-    result -> new HandleClassification(result, query)
-);
-classifierActor.tell(new RouteToClassifierMessage(sessionId, query, adapter));
+//ActorRef<ClassificationResultMessage> adapter = getContext().messageAdapter(
+//    ClassificationResultMessage.class,
+//    result -> new HandleClassification(result, query)
+//);
+//classifierActor.tell(new RouteToClassifierMessage(sessionId, query, adapter));
 ```
 
 **FORWARD (preserve sender context):**
 ```java
 // DiplomaticSessionActor → CulturalContextActor (preserving replyTo)
-culturalActor.tell(new CulturalAnalysisRequest(
-    query, country, adapter)); // adapter preserves original sender
+// culturalActor.tell(new CulturalAnalysisRequest(
+//    query, country, adapter)); // adapter preserves original sender
 ```
 
 ### ✅ 4. LLM Integration

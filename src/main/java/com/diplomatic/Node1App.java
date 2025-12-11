@@ -19,6 +19,7 @@ public class Node1App {
 
     private static ActorRef<ClusterSupervisorActor.Command> supervisorRef;
     private static ActorSystem<Void> system;
+    private static volatile boolean clusterReady = false;
 
     public static void main(String[] args) {
         Config config = ConfigFactory.parseFile(
@@ -55,14 +56,25 @@ public class Node1App {
         System.out.println("\n🚀 Node 1 starting...");
         System.out.println("📍 Address: " + cluster.selfMember().address());
         System.out.println("🎭 Roles: " + cluster.selfMember().roles());
-        System.out.println("⏳ Waiting for cluster formation...\n");
+        System.out.println("⏳ Waiting for cluster formation (need 2 nodes)...\n");
 
+        // Monitor cluster readiness
         new Thread(() -> {
             try {
-                Thread.sleep(15000);
+                // Wait for cluster to be ready
+                System.out.println("⏳ Waiting for cluster to form...");
+                while (cluster.state().members().size() < 2) {
+                    Thread.sleep(500);
+                }
+
+                // Give actors time to register
+                Thread.sleep(3000);
+
+                clusterReady = true;
                 System.out.println("\n╔═══════════════════════════════════════════════════════════════╗");
-                System.out.println("║  CLUSTER INITIALIZED - STARTING INTERACTIVE CLI               ║");
+                System.out.println("║  ✅ CLUSTER READY - STARTING INTERACTIVE CLI                  ║");
                 System.out.println("╚═══════════════════════════════════════════════════════════════╝\n");
+
                 startInteractiveCLI();
             } catch (Exception e) {
                 System.err.println("Error: " + e.getMessage());
@@ -91,6 +103,7 @@ public class Node1App {
 
         String sessionId = createSession(userName);
         if (sessionId == null) {
+            System.err.println("❌ Failed to create session. Exiting.");
             scanner.close();
             return;
         }
@@ -104,6 +117,11 @@ public class Node1App {
     }
 
     private static String createSession(String userName) {
+        if (!clusterReady) {
+            System.err.println("❌ Cluster not ready yet!");
+            return null;
+        }
+
         try {
             CompletableFuture<String> sessionFuture = new CompletableFuture<>();
 
@@ -127,6 +145,7 @@ public class Node1App {
 
         } catch (Exception e) {
             System.err.println("❌ Failed to create session: " + e.getMessage());
+            e.printStackTrace();
             return null;
         }
     }
@@ -160,7 +179,6 @@ public class Node1App {
 
             Behavior<String> responseHandlerBehavior = Behaviors.receive(
                     (context, msg) -> {
-                        System.out.println("✅ Response received from cluster!");
                         responseFuture.complete(msg);
                         return Behaviors.stopped();
                     }
