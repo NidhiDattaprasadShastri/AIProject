@@ -37,6 +37,12 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
     }
 
     private Behavior<CulturalAnalysisRequestMessage> onAnalyzeRequest(CulturalAnalysisRequestMessage msg) {
+        // CRITICAL FIX: Ignore dummy messages from adapters to prevent infinite loop
+        if (msg.getQuery() == null || msg.getQuery().trim().isEmpty()) {
+            logger.debug("Ignoring empty query (adapter dummy message)");
+            return this;
+        }
+
         logger.info("Processing cultural analysis for country: {}", msg.getCountry());
 
         String culturalPrompt = buildCulturalPrompt(msg.getQuery(), msg.getCountry());
@@ -65,8 +71,9 @@ public class CulturalContextActor extends AbstractBehavior<CulturalAnalysisReque
 
                     originalReplyTo.tell(response);
 
-                    // Return the ORIGINAL message to avoid creating new messages
-                    return msg;
+                    // CRITICAL FIX: Return a dummy message with empty query to prevent re-processing
+                    // The empty query will be caught by the guard clause above
+                    return new CulturalAnalysisRequest("", "processed", originalReplyTo);
                 }
         );
 

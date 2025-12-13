@@ -37,6 +37,12 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
     }
 
     private Behavior<DiplomaticPrimitiveRequestMessage> onProcessRequest(DiplomaticPrimitiveRequestMessage msg) {
+        // CRITICAL FIX: Ignore dummy messages from adapters to prevent infinite loop
+        if (msg.getQuery() == null || msg.getQuery().trim().isEmpty()) {
+            logger.debug("Ignoring empty query (adapter dummy message)");
+            return this;
+        }
+
         String primitive = msg.getPrimitive();
         logger.info("Processing diplomatic primitive: {} for query: {}", primitive, msg.getQuery());
 
@@ -69,8 +75,9 @@ public class DiplomaticPrimitivesActor extends AbstractBehavior<DiplomaticPrimit
 
                     originalReplyTo.tell(response);
 
-                    // Return the ORIGINAL message to avoid creating new messages
-                    return msg;
+                    // CRITICAL FIX: Return a dummy message with empty query to prevent re-processing
+                    // The empty query will be caught by the guard clause above
+                    return new DiplomaticPrimitiveRequestMessage("processed", "", originalReplyTo);
                 }
         );
 
